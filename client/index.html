@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RoF Crafter</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- 상태 바 -->
+    <section class="controls">
+      <div class="status-bar">
+        <span class="engine-badge">Deepgram</span>
+        <span id="connection-status" class="status-indicator disconnected">연결 안됨</span>
+        <span id="session-id" class="session-label"></span>
+      </div>
+    </section>
+
+    <!-- 진행률 -->
+    <section class="progress-section">
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+      </div>
+      <span id="progress-text" class="progress-text">질문 0 / 0</span>
+    </section>
+
+    <!-- 대화 영역 -->
+    <section class="conversation" id="conversation">
+      <div id="chat-messages" class="chat-messages">
+        <!-- 메시지가 여기에 추가됨 -->
+      </div>
+    </section>
+
+    <!-- 실시간 전사 표시 -->
+    <section class="live-transcript" id="live-transcript-section" style="display:none;">
+      <div class="transcript-label">실시간 전사 중...</div>
+      <p id="live-transcript" class="transcript-text"></p>
+    </section>
+
+    <!-- 마이크 컨트롤 -->
+    <section class="mic-controls">
+      <button id="btn-start" class="mic-btn push-to-talk" disabled>
+        <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        <span id="mic-label">대기 중</span>
+      </button>
+      <div id="audio-visualizer" class="visualizer">
+        <canvas id="visualizer-canvas" width="300" height="40"></canvas>
+      </div>
+    </section>
+
+    <!-- 메트릭 패널 -->
+    <section class="metrics-panel" id="metrics-panel" style="display:none;">
+      <h3 class="metrics-title">STT 메트릭</h3>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">엔진</span>
+          <span id="metric-engine" class="metric-value">-</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">지연시간</span>
+          <span id="metric-latency" class="metric-value">- ms</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">신뢰도</span>
+          <span id="metric-confidence" class="metric-value">-</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">오디오 길이</span>
+          <span id="metric-duration" class="metric-value">- sec</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 세션 종료 버튼 -->
+    <section class="session-actions">
+      <button id="btn-end-session" class="btn-secondary" disabled>대화 종료 및 저장</button>
+      <button id="btn-new-session" class="btn-primary" style="display:none;">새 대화 시작</button>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
