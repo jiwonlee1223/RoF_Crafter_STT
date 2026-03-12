@@ -10,14 +10,36 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <div id="app">
+  <!-- 로그인 화면 -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <h1 class="login-title">RoF Crafter</h1>
+      <p class="login-subtitle">대화를 시작하려면 로그인하세요</p>
+      <form id="login-form" class="login-form" autocomplete="off">
+        <div class="input-group">
+          <label for="login-userid">아이디</label>
+          <input type="text" id="login-userid" placeholder="아이디를 입력하세요" required />
+        </div>
+        <div class="input-group">
+          <label for="login-password">비밀번호</label>
+          <input type="password" id="login-password" placeholder="비밀번호를 입력하세요" required />
+        </div>
+        <div id="login-error" class="login-error" style="display:none;"></div>
+        <button type="submit" id="btn-login" class="btn-primary login-btn">로그인</button>
+        <button type="button" id="btn-register" class="btn-secondary login-btn">회원가입</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" style="display:none;">
 
     <!-- 상태 바 -->
     <section class="controls">
       <div class="status-bar">
-        <!-- <span class="engine-badge">Deepgram</span> -->
         <span id="connection-status" class="status-indicator disconnected">연결 안됨</span>
+        <span id="user-badge" class="user-badge"></span>
         <span id="session-id" class="session-label"></span>
+        <button id="btn-logout" class="btn-logout">로그아웃</button>
       </div>
     </section>
 
@@ -38,12 +60,14 @@
 
     <!-- 실시간 전사 표시 -->
     <section class="live-transcript" id="live-transcript-section" style="display:none;">
-      <div class="transcript-label">실시간 전사 중...</div>
       <p id="live-transcript" class="transcript-text"></p>
     </section>
 
     <!-- 마이크 컨트롤 -->
     <section class="mic-controls">
+      <div id="record-guide-bubble" class="record-guide-bubble" aria-hidden="true">
+        버튼을 꾹 누른 상태로 답변해 주세요.
+      </div>
       <button id="btn-start" class="mic-btn push-to-talk" disabled>
         <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
@@ -79,6 +103,40 @@
         </div>
       </div>
     </section> -->
+
+    <!-- 비디오 생성 영역 -->
+    <section id="video-section" class="video-section" style="display:none;">
+      <h3 class="video-title">비디오 생성</h3>
+      <div id="video-controls" class="video-controls">
+        <label class="file-upload-label">
+          <input type="file" id="video-image-input" accept="image/*" />
+          <span>프로필 이미지 선택</span>
+        </label>
+        <select id="video-gender" class="gender-select">
+          <option value="female">여성</option>
+          <option value="male">남성</option>
+        </select>
+        <button id="btn-generate-video" class="btn-primary" disabled>비디오 생성</button>
+      </div>
+      <div id="video-status" class="video-status" style="display:none;">
+        <div class="video-status-text"></div>
+        <div class="video-progress-bar">
+          <div id="video-progress-fill" class="progress-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <div id="video-result" class="video-result" style="display:none;">
+        <div class="video-pair">
+          <div class="video-item">
+            <h4>Speaking</h4>
+            <video id="video-speaking" controls></video>
+          </div>
+          <div class="video-item">
+            <h4>Listening</h4>
+            <video id="video-listening" controls></video>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <section class="session-actions">
       <button id="btn-end-session" class="btn-secondary" disabled>대화 종료 및 저장</button>

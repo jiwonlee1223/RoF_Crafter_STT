@@ -338,6 +338,54 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 16px;
+  position: relative;
+}
+
+/* 말풍선 가이드 (첫 진입 시 녹음 버튼 위에 표시) */
+.record-guide-bubble {
+  display: none;
+  position: absolute;
+  bottom: calc(80px + 16px + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 12px 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  color: var(--text);
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  animation: fadeIn 0.35s ease;
+}
+
+.record-guide-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: var(--surface-2);
+  border-bottom: none;
+}
+
+.record-guide-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 9px solid transparent;
+  border-top-color: var(--border);
+  border-bottom: none;
+  z-index: -1;
+}
+
+.record-guide-bubble.visible {
+  display: block;
 }
 
 .mic-btn {
@@ -356,6 +404,8 @@ body {
   transition: all 0.3s ease;
   font-family: var(--font);
   font-size: 0.65rem;
+  position: relative;
+  z-index: 1;
 }
 
 .mic-btn:disabled {
@@ -528,6 +578,223 @@ body {
   font-size: 0.85rem;
 }
 
+/* 비디오 생성 섹션 */
+.video-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-top: 16px;
+}
+
+.video-title {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.video-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.file-upload-label {
+  display: inline-block;
+  padding: 8px 16px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.file-upload-label:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.file-upload-label input[type="file"] {
+  display: none;
+}
+
+.gender-select {
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.video-status {
+  margin-top: 14px;
+}
+
+.video-status-text {
+  color: var(--primary);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.video-progress-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.video-result {
+  margin-top: 16px;
+}
+
+.video-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.video-item h4 {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.video-item video {
+  width: 100%;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+/* ── 로그인 화면 ── */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow);
+}
+
+.login-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-align: center;
+  background: linear-gradient(135deg, var(--primary), var(--accent-dg));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 6px;
+}
+
+.login-subtitle {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin-bottom: 28px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-group label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.input-group input {
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-group input:focus {
+  border-color: var(--primary);
+}
+
+.input-group input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.login-error {
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--danger);
+  font-size: 0.83rem;
+  text-align: center;
+}
+
+/* 사용자 배지 */
+.user-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(108, 92, 231, 0.15);
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.btn-logout {
+  margin-left: auto;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-logout:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 /* 반응형 */
 @media (max-width: 480px) {
   #app {
@@ -540,5 +807,14 @@ body {
 
   .header__title {
     font-size: 1.3rem;
+  }
+
+  .video-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .video-controls {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

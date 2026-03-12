@@ -1,7 +1,19 @@
 (() => {
   'use strict';
 
-  // --- DOM ---
+  // --- Login DOM ---
+  const loginScreen = document.getElementById('login-screen');
+  const appEl = document.getElementById('app');
+  const loginForm = document.getElementById('login-form');
+  const loginUserIdInput = document.getElementById('login-userid');
+  const loginPasswordInput = document.getElementById('login-password');
+  const loginError = document.getElementById('login-error');
+  const btnLogin = document.getElementById('btn-login');
+  const btnRegister = document.getElementById('btn-register');
+  const userBadge = document.getElementById('user-badge');
+  const btnLogout = document.getElementById('btn-logout');
+
+  // --- App DOM ---
   const connectionStatus = document.getElementById('connection-status');
   const sessionIdEl = document.getElementById('session-id');
   const progressFill = document.getElementById('progress-fill');
@@ -13,6 +25,7 @@
   const btnStart = document.getElementById('btn-start');
   const micLabel = document.getElementById('mic-label');
   const visualizerCanvas = document.getElementById('visualizer-canvas');
+  const recordGuideBubble = document.getElementById('record-guide-bubble');
   const metricsPanel = document.getElementById('metrics-panel');
   const metricEngine = document.getElementById('metric-engine');
   const metricLatency = document.getElementById('metric-latency');
@@ -21,9 +34,21 @@
   const btnEndSession = document.getElementById('btn-end-session');
   const btnNewSession = document.getElementById('btn-new-session');
 
+  // Video DOM
+  const videoSection = document.getElementById('video-section');
+  const videoImageInput = document.getElementById('video-image-input');
+  const videoGender = document.getElementById('video-gender');
+  const btnGenerateVideo = document.getElementById('btn-generate-video');
+  const videoStatusEl = document.getElementById('video-status');
+  const videoProgressFill = document.getElementById('video-progress-fill');
+  const videoResult = document.getElementById('video-result');
+  const videoSpeaking = document.getElementById('video-speaking');
+  const videoListening = document.getElementById('video-listening');
+
   // --- State ---
   let ws = null;
   let sessionId = null;
+  let loggedInUserId = null;
   let audioContext = null;
   let analyserNode = null;
   let mediaStream = null;
@@ -34,13 +59,78 @@
   let totalQuestions = 0;
   let questionIndex = 0;
   let animFrameId = null;
+  let hasUserPressedRecordOnce = false;
+
+  // --- Auth ---
+  function showLoginError(msg) {
+    loginError.textContent = msg;
+    loginError.style.display = 'block';
+  }
+
+  function hideLoginError() {
+    loginError.style.display = 'none';
+  }
+
+  async function handleAuth(endpoint) {
+    const userId = loginUserIdInput.value.trim();
+    const password = loginPasswordInput.value;
+    if (!userId || !password) {
+      showLoginError('아이디와 비밀번호를 입력해주세요');
+      return;
+    }
+
+    hideLoginError();
+    btnLogin.disabled = true;
+    btnRegister.disabled = true;
+
+    try {
+      const res = await fetch(`/api/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '요청 실패');
+
+      loggedInUserId = data.userId;
+      loginScreen.style.display = 'none';
+      appEl.style.display = 'flex';
+      userBadge.textContent = loggedInUserId;
+      connectWebSocket();
+    } catch (err) {
+      showLoginError(err.message);
+    } finally {
+      btnLogin.disabled = false;
+      btnRegister.disabled = false;
+    }
+  }
+
+  loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    handleAuth('login');
+  });
+
+  btnRegister.addEventListener('click', () => {
+    handleAuth('register');
+  });
+
+  btnLogout.addEventListener('click', () => {
+    if (ws) ws.close();
+    loggedInUserId = null;
+    appEl.style.display = 'none';
+    loginScreen.style.display = 'flex';
+    loginUserIdInput.value = '';
+    loginPasswordInput.value = '';
+    hideLoginError();
+  });
 
   // --- WebSocket (Deepgram 고정) ---
   function connectWebSocket() {
     if (ws) ws.close();
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${location.host}?engine=deepgram`;
+    const userParam = loggedInUserId ? `&userId=${encodeURIComponent(loggedInUserId)}` : '';
+    const wsUrl = `${protocol}//${location.host}?engine=deepgram${userParam}`;
 
     ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
@@ -124,9 +214,41 @@
         setMicReady();
         break;
 
+      case 'video_status': {
+        videoStatusEl.style.display = 'block';
+        const statusMap = {
+          preprocessing: '당신의 모습을 미래로 다듬고 있어요.',
+          uploading: '당신의 이미지를 불러오고 있어요.',
+          generating: '당신의 미래 자아를 호출하고 있어요.',
+        };
+        videoStatusEl.querySelector('.video-status-text').textContent = statusMap[msg.status] || msg.status;
+        break;
+      }
+
+      case 'video_progress': {
+        const pct = msg.total > 0 ? Math.round((msg.finished / msg.total) * 100) : 0;
+        videoProgressFill.style.width = `${pct}%`;
+        videoStatusEl.querySelector('.video-status-text').textContent = `비디오 생성 중... (${msg.finished}/${msg.total} 노드)`;
+        break;
+      }
+
+      case 'video_complete':
+        videoStatusEl.style.display = 'none';
+        videoResult.style.display = 'block';
+        if (msg.speakingUrl) videoSpeaking.src = msg.speakingUrl;
+        if (msg.listeningUrl) videoListening.src = msg.listeningUrl;
+        btnGenerateVideo.disabled = false;
+        btnGenerateVideo.textContent = '비디오 생성';
+        addSystemMessage('10년 뒤 미래에서 온 당신이 RoF Studio에서 기다리고 있어요. Studio로 입장해 주세요.');
+        break;
+
       case 'error':
         console.error('[Server]', msg.message);
         addSystemMessage(`오류: ${msg.message}`);
+        if (btnGenerateVideo) {
+          btnGenerateVideo.disabled = false;
+          btnGenerateVideo.textContent = '비디오 생성';
+        }
         break;
     }
   }
@@ -166,16 +288,31 @@
   function setMicReady() {
     btnStart.disabled = false;
     micLabel.textContent = '꾹 눌러서 말하기';
+    if (!hasUserPressedRecordOnce && recordGuideBubble) {
+      recordGuideBubble.classList.add('visible');
+      recordGuideBubble.setAttribute('aria-hidden', 'false');
+    }
   }
 
   // --- Push-to-Talk: mousedown/touchstart → 녹음, mouseup/touchend → 종료 ---
+  function dismissRecordGuide() {
+    if (hasUserPressedRecordOnce) return;
+    hasUserPressedRecordOnce = true;
+    if (recordGuideBubble) {
+      recordGuideBubble.classList.remove('visible');
+      recordGuideBubble.setAttribute('aria-hidden', 'true');
+    }
+  }
+
   btnStart.addEventListener('mousedown', (e) => {
     e.preventDefault();
+    dismissRecordGuide();
     if (!btnStart.disabled && !isRecording) startRecording();
   });
 
   btnStart.addEventListener('touchstart', (e) => {
     e.preventDefault();
+    dismissRecordGuide();
     if (!btnStart.disabled && !isRecording) startRecording();
   });
 
@@ -342,16 +479,6 @@
     content.textContent = text;
     bubble.appendChild(content);
 
-    if (metadata && role === 'user') {
-      const meta = document.createElement('div');
-      meta.className = 'bubble-meta';
-      const items = [];
-      if (metadata.latency_ms) items.push(`${metadata.latency_ms}ms`);
-      if (metadata.confidence) items.push(`신뢰도 ${(metadata.confidence * 100).toFixed(1)}%`);
-      meta.textContent = items.join(' · ');
-      bubble.appendChild(meta);
-    }
-
     chatMessages.appendChild(bubble);
     conversation.scrollTop = conversation.scrollHeight;
   }
@@ -408,6 +535,13 @@
     `;
     chatMessages.appendChild(banner);
     conversation.scrollTop = conversation.scrollHeight;
+
+    // 비디오 생성 UI 표시
+    if (videoSection) {
+      videoSection.style.display = 'block';
+      videoResult.style.display = 'none';
+      videoStatusEl.style.display = 'none';
+    }
   }
 
   // --- End / New Session ---
@@ -425,8 +559,36 @@
     chatMessages.innerHTML = '';
     metricsPanel.style.display = 'none';
     liveTranscriptSection.style.display = 'none';
+    hasUserPressedRecordOnce = false;
     connectWebSocket();
   });
+
+  // --- Video Generation ---
+  if (videoImageInput) {
+    videoImageInput.addEventListener('change', () => {
+      btnGenerateVideo.disabled = !videoImageInput.files.length;
+    });
+  }
+
+  if (btnGenerateVideo) {
+    btnGenerateVideo.addEventListener('click', async () => {
+      const file = videoImageInput?.files[0];
+      if (!file || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      btnGenerateVideo.disabled = true;
+      btnGenerateVideo.textContent = '처리 중...';
+      videoResult.style.display = 'none';
+      videoProgressFill.style.width = '0%';
+
+      const arrayBuffer = await file.arrayBuffer();
+      ws.send(JSON.stringify({
+        type: 'generate_video',
+        userId: loggedInUserId || sessionId,
+        gender: videoGender.value,
+        fileBuffer: Array.from(new Uint8Array(arrayBuffer)),
+      }));
+    });
+  }
 
   // Chrome voice list
   if (speechSynthesis.onvoiceschanged !== undefined) {
@@ -434,5 +596,5 @@
   }
 
   // --- Init ---
-  connectWebSocket();
+  // 로그인 후 connectWebSocket() 호출됨
 })();

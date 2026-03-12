@@ -9,6 +9,8 @@ const deepgramHandler = require('./deepgramHandler');
 const agentService = require('./agentService');
 const sessionManager = require('./sessionManager');
 const firebaseService = require('./firebaseService');
+const comfyuiService = require('./comfyuiService');
+const geminiImageGen = require('./gemini-image-gen');
 const questions = require('./questions.json');
 
 const app = express();
@@ -40,11 +42,48 @@ function isHallucination(text) {
 deepgramHandler.init();
 agentService.init();
 firebaseService.init();
+comfyuiService.init();
 
 console.log(`[SERVER] Loaded ${MAX_TURNS} questions from questions.json`);
 
 app.use(express.static(path.join(__dirname, '..', 'client')));
 app.use(express.json());
+
+// ── 회원가입 ──
+app.post('/api/register', async (req, res) => {
+  try {
+    const { userId, password } = req.body;
+    if (!userId || !password) {
+      return res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요' });
+    }
+    if (userId.length < 2) {
+      return res.status(400).json({ error: '아이디는 2자 이상이어야 합니다' });
+    }
+    if (password.length < 4) {
+      return res.status(400).json({ error: '비밀번호는 4자 이상이어야 합니다' });
+    }
+    await firebaseService.registerUser(userId, password);
+    res.json({ success: true, userId });
+  } catch (err) {
+    console.error('[AUTH] Register failed:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ── 로그인 ──
+app.post('/api/login', async (req, res) => {
+  try {
+    const { userId, password } = req.body;
+    if (!userId || !password) {
+      return res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요' });
+    }
+    await firebaseService.loginUser(userId, password);
+    res.json({ success: true, userId });
+  } catch (err) {
+    console.error('[AUTH] Login failed:', err.message);
+    res.status(401).json({ error: err.message });
+  }
+});
 
 app.get('/api/session/:sessionId', (req, res) => {
   const data = sessionManager.toJSON(req.params.sessionId);
@@ -52,12 +91,15 @@ app.get('/api/session/:sessionId', (req, res) => {
   res.json(data);
 });
 
-wss.on('connection', async (ws) => {
+wss.on('connection', async (ws, req) => {
+  const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
+  const loggedInUserId = params.get('userId') || null;
+
   const session = sessionManager.createSession('deepgram');
   const sessionId = session.session_id;
   let questionIndex = 0;
 
-  console.log(`[WS] New session: ${sessionId}`);
+  console.log(`[WS] New session: ${sessionId}, userId: ${loggedInUserId || '(anonymous)'}`);
 
   let dgSession = null;
   let audioStartTime = null;
@@ -134,21 +176,29 @@ wss.on('connection', async (ws) => {
       }
 
       case 'stop_recording': {
-        console.log(`[REC] stop_recording, finalTranscript="${finalTranscript}"`);
+        console.log(`[REC] stop_recording received, current finalTranscript="${finalTranscript}"`);
 
-        if (dgSession) {
-          dgSession.close();
-          dgSession = null;
-        }
+        // Deepgram이 마지막 is_final 이벤트를 보낼 시간을 확보한 후 종료
+        setTimeout(() => {
+          console.log(`[REC] After delay, finalTranscript="${finalTranscript}"`);
 
-        if (finalTranscript && !isHallucination(finalTranscript)) {
-          ws.send(JSON.stringify({
-            type: 'transcript_final',
-            text: finalTranscript,
-            confidence: lastConfidence,
-            latency_ms: lastLatency,
-          }));
-        }
+          if (dgSession) {
+            dgSession.close();
+            dgSession = null;
+          }
+
+          if (finalTranscript && !isHallucination(finalTranscript)) {
+            ws.send(JSON.stringify({
+              type: 'transcript_final',
+              text: finalTranscript,
+              confidence: lastConfidence,
+              latency_ms: lastLatency,
+            }));
+          } else {
+            console.log('[REC] Empty or hallucinated transcript, resetting mic');
+            ws.send(JSON.stringify({ type: 'transcript_rejected' }));
+          }
+        }, 1000);
         break;
       }
 
@@ -173,7 +223,7 @@ wss.on('connection', async (ws) => {
         // 모든 질문 소진 → 세션 종료
         if (questionIndex >= MAX_TURNS) {
           console.log(`[FLOW] All ${MAX_TURNS} questions done, completing session`);
-          await handleSessionComplete(sessionId, ws);
+          await handleSessionComplete(sessionId, ws, loggedInUserId);
           break;
         }
 
@@ -205,7 +255,88 @@ wss.on('connection', async (ws) => {
       }
 
       case 'end_session': {
-        await handleSessionComplete(sessionId, ws);
+        await handleSessionComplete(sessionId, ws, loggedInUserId);
+        break;
+      }
+
+      // 클라이언트에서 비디오 생성 요청
+      case 'generate_video': {
+        const userId = msg.userId || loggedInUserId || sessionId;
+        const gender = msg.gender || 'female';
+        console.log(`[VIDEO] generate_video request: userId=${userId}, gender=${gender}`);
+
+        try {
+          if (!msg.fileBuffer) {
+            ws.send(JSON.stringify({ type: 'error', message: '이미지가 필요합니다' }));
+            break;
+          }
+
+          const rawImage = Buffer.from(msg.fileBuffer);
+
+          // Gemini로 이미지 전처리 (image-to-image)
+          ws.send(JSON.stringify({ type: 'video_status', status: 'preprocessing' }));
+          let imageToUpload = rawImage;
+          try {
+            const geminiPrompt = geminiImageGen.getBaseImagePrompt(gender);
+            console.log(`[VIDEO] Gemini preprocessing with prompt (${geminiPrompt.length} chars)`);
+            imageToUpload = await geminiImageGen.generateImageWithGemini({
+              imageBuffer: rawImage,
+              prompt: geminiPrompt,
+            });
+            console.log(`[VIDEO] Gemini preprocessing done, output=${imageToUpload.length} bytes`);
+          } catch (geminiErr) {
+            console.warn(`[VIDEO] Gemini preprocessing failed, using original:`, geminiErr.message);
+            imageToUpload = rawImage;
+          }
+
+          // 전처리된 이미지를 ComfyUI에 업로드
+          ws.send(JSON.stringify({ type: 'video_status', status: 'uploading' }));
+          await comfyuiService.uploadImage(imageToUpload);
+
+          // 워크플로우 로드 및 수정
+          const workflow = comfyuiService.loadWorkflow(gender);
+          comfyuiService.prepareWorkflow(workflow, {
+            userId,
+            speakingPrompt: msg.speakingPrompt,
+            listeningPrompt: msg.listeningPrompt,
+          });
+
+          ws.send(JSON.stringify({ type: 'video_status', status: 'generating' }));
+
+          // ComfyUI에 제출
+          const promptId = await comfyuiService.submitWorkflow(workflow, {
+            onProgress: (nodes) => {
+              const finished = Object.values(nodes).filter(n => n.state === 'finished').length;
+              const total = Object.keys(nodes).length;
+              ws.send(JSON.stringify({
+                type: 'video_progress',
+                finished,
+                total,
+              }));
+            },
+            onComplete: async (result) => {
+              console.log(`[VIDEO] Complete: speaking=${result.speaking}, listening=${result.listening}`);
+              ws.send(JSON.stringify({
+                type: 'video_complete',
+                speakingUrl: result.speaking,
+                listeningUrl: result.listening,
+              }));
+              await firebaseService.saveGeneratedVideo(userId, {
+                speakingUrl: result.speaking,
+                listeningUrl: result.listening,
+              });
+            },
+            onError: (err) => {
+              console.error('[VIDEO] Error:', err.message);
+              ws.send(JSON.stringify({ type: 'error', message: 'Video generation failed' }));
+            },
+          });
+
+          console.log(`[VIDEO] Submitted, promptId=${promptId}`);
+        } catch (err) {
+          console.error('[VIDEO] generate_video failed:', err.message);
+          ws.send(JSON.stringify({ type: 'error', message: err.message }));
+        }
         break;
       }
     }
@@ -217,7 +348,7 @@ wss.on('connection', async (ws) => {
   });
 });
 
-async function handleSessionComplete(sessionId, ws) {
+async function handleSessionComplete(sessionId, ws, userId) {
   try {
     const lastAudio = sessionManager.getLastAnswerAudio(sessionId);
     let audioUrl = null;
@@ -227,13 +358,35 @@ async function handleSessionComplete(sessionId, ws) {
     }
 
     const sessionData = sessionManager.toJSON(sessionId);
-    await firebaseService.saveConversation(sessionData);
+    if (userId) sessionData.userId = userId;
+    const docUserId = userId || sessionId;
+
+    // responses/{userId}/default/data에 대화 저장
+    await firebaseService.saveConversation(docUserId, sessionData);
+
+    const turnCount = sessionData.conversation ? sessionData.conversation.length : 0;
+    await firebaseService.saveChatHistory(sessionId, userId, turnCount);
 
     ws.send(JSON.stringify({ type: 'session_complete', session: sessionData }));
     console.log(`[SESSION] Conversation saved: ${sessionId}`);
+
+    // 페르소나 생성은 비동기로 (클라이언트 응답 블로킹 없이)
+    const history = sessionData.conversation || [];
+    generateAndSavePersona(docUserId, history);
   } catch (err) {
     console.error('[SESSION] Save failed:', err.message);
     ws.send(JSON.stringify({ type: 'error', message: 'Session save failed' }));
+  }
+}
+
+async function generateAndSavePersona(userId, conversationHistory) {
+  try {
+    console.log(`[PERSONA] Generating exhib persona for: ${userId}`);
+    const { personaText, cardText } = await agentService.generateExhibPersona(conversationHistory);
+    await firebaseService.saveExhibPersona(userId, personaText, cardText);
+    console.log(`[PERSONA] Exhib persona complete for: ${userId}`);
+  } catch (err) {
+    console.error(`[PERSONA] Generation failed for ${userId}:`, err.message);
   }
 }
 

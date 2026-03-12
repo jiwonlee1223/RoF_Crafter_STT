@@ -1,0 +1,909 @@
+{
+  "2": {
+    "inputs": {
+      "image": "jiwontest_nanobanana_00001_.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "134": {
+    "inputs": {
+      "filename_prefix": "RoF_output/test",
+      "format": "auto",
+      "codec": "auto",
+      "video-preview": "",
+      "video": [
+        "135:94",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "136": {
+    "inputs": {
+      "filename_prefix": "2026rof/test",
+      "format": "auto",
+      "codec": "auto",
+      "video-preview": "",
+      "video": [
+        "137:94",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "135:98": {
+    "inputs": {
+      "width": 640,
+      "height": 1008,
+      "length": 81,
+      "batch_size": 1,
+      "positive": [
+        "135:93",
+        0
+      ],
+      "negative": [
+        "135:89",
+        0
+      ],
+      "vae": [
+        "135:90",
+        0
+      ],
+      "start_image": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "WanImageToVideo",
+    "_meta": {
+      "title": "WanImageToVideo"
+    }
+  },
+  "135:94": {
+    "inputs": {
+      "fps": 16,
+      "images": [
+        "135:87",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "135:104": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "135:116",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "135:102": {
+    "inputs": {
+      "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+      "strength_model": 1.0000000000000002,
+      "model": [
+        "135:96",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "135:124": {
+    "inputs": {
+      "value": 2
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "split_step"
+    }
+  },
+  "135:85": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 0,
+      "steps": [
+        "135:119",
+        0
+      ],
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": [
+        "135:125",
+        0
+      ],
+      "end_at_step": [
+        "135:119",
+        0
+      ],
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "135:103",
+        0
+      ],
+      "positive": [
+        "135:98",
+        0
+      ],
+      "negative": [
+        "135:98",
+        1
+      ],
+      "latent_image": [
+        "135:86",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "135:118": {
+    "inputs": {
+      "value": 4
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Steps"
+    }
+  },
+  "135:86": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 829165375611817,
+      "steps": [
+        "135:119",
+        0
+      ],
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": [
+        "135:125",
+        0
+      ],
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "135:104",
+        0
+      ],
+      "positive": [
+        "135:98",
+        0
+      ],
+      "negative": [
+        "135:98",
+        1
+      ],
+      "latent_image": [
+        "135:98",
+        2
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "135:89": {
+    "inputs": {
+      "text": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "135:84",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "135:128": {
+    "inputs": {
+      "value": 20
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Steps"
+    }
+  },
+  "135:87": {
+    "inputs": {
+      "samples": [
+        "135:85",
+        0
+      ],
+      "vae": [
+        "135:90",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "135:93": {
+    "inputs": {
+      "text": "Stationary fixed camera angle of a distinguished man, leans on a very high stool in a pristine black studio space. The floor and background blend seamlessly into pure black, creating a clean, minimal, distraction-free setting. He faces the camera directly, as if responding thoughtfully in a formal interview. His lips move slowly in sync with the audio, delivering his words with calm, articulate expression. She looks front. His posture is composed, with occasional subtle movements—very slow and gentle nods, small movement of the shoulders or hands, and nuanced eyebrow or head gestures that add emphasis to her speech. His hands remain completely still and fixed in place throughout, resting gently near his lap without any movement. His full body is clearly visible in the frame. A soft shadow beneath the chair grounds his in the space, enhancing the sense of depth without disrupting the minimalist aesthetic. The lighting is bright and even, with soft contours that highlight his facial features and professional presence. Captured in a full-body shot with a neutral lens, the video focuses on both her speech and body language in a clean, cinematic presentation.",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "135:84",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "135:131": {
+    "inputs": {
+      "value": true
+    },
+    "class_type": "PrimitiveBoolean",
+    "_meta": {
+      "title": "Enable 4steps LoRA?"
+    }
+  },
+  "135:90": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "135:84": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "135:96": {
+    "inputs": {
+      "unet_name": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "135:95": {
+    "inputs": {
+      "unet_name": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "135:103": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "135:117",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "135:127": {
+    "inputs": {
+      "value": 10
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "split_step"
+    }
+  },
+  "135:101": {
+    "inputs": {
+      "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+      "strength_model": 1.0000000000000002,
+      "model": [
+        "135:95",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "135:126": {
+    "inputs": {
+      "value": 3.5
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "CFG"
+    }
+  },
+  "135:116": {
+    "inputs": {
+      "switch": [
+        "135:131",
+        0
+      ],
+      "on_false": [
+        "135:95",
+        0
+      ],
+      "on_true": [
+        "135:101",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (Model)"
+    }
+  },
+  "135:117": {
+    "inputs": {
+      "switch": [
+        "135:131",
+        0
+      ],
+      "on_false": [
+        "135:96",
+        0
+      ],
+      "on_true": [
+        "135:102",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (Model)"
+    }
+  },
+  "135:119": {
+    "inputs": {
+      "switch": [
+        "135:131",
+        0
+      ],
+      "on_false": [
+        "135:128",
+        0
+      ],
+      "on_true": [
+        "135:118",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (Steps)"
+    }
+  },
+  "135:120": {
+    "inputs": {
+      "switch": [
+        "135:131",
+        0
+      ],
+      "on_false": [
+        "135:126",
+        0
+      ],
+      "on_true": [
+        "135:122",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (CFG)"
+    }
+  },
+  "135:125": {
+    "inputs": {
+      "switch": [
+        "135:131",
+        0
+      ],
+      "on_false": [
+        "135:127",
+        0
+      ],
+      "on_true": [
+        "135:124",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (Split Step)"
+    }
+  },
+  "135:122": {
+    "inputs": {
+      "value": 1
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "CFG"
+    }
+  },
+  "137:98": {
+    "inputs": {
+      "width": 640,
+      "height": 1008,
+      "length": 81,
+      "batch_size": 1,
+      "positive": [
+        "137:93",
+        0
+      ],
+      "negative": [
+        "137:89",
+        0
+      ],
+      "vae": [
+        "137:90",
+        0
+      ],
+      "start_image": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "WanImageToVideo",
+    "_meta": {
+      "title": "WanImageToVideo"
+    }
+  },
+  "137:94": {
+    "inputs": {
+      "fps": 16,
+      "images": [
+        "137:87",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "137:104": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "137:116",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "137:102": {
+    "inputs": {
+      "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+      "strength_model": 1.0000000000000002,
+      "model": [
+        "137:96",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "137:124": {
+    "inputs": {
+      "value": 2
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "split_step"
+    }
+  },
+  "137:85": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 0,
+      "steps": [
+        "137:119",
+        0
+      ],
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": [
+        "137:125",
+        0
+      ],
+      "end_at_step": [
+        "137:119",
+        0
+      ],
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "137:103",
+        0
+      ],
+      "positive": [
+        "137:98",
+        0
+      ],
+      "negative": [
+        "137:98",
+        1
+      ],
+      "latent_image": [
+        "137:86",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "137:118": {
+    "inputs": {
+      "value": 4
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Steps"
+    }
+  },
+  "137:86": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 65959573867081,
+      "steps": [
+        "137:119",
+        0
+      ],
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": [
+        "137:125",
+        0
+      ],
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "137:104",
+        0
+      ],
+      "positive": [
+        "137:98",
+        0
+      ],
+      "negative": [
+        "137:98",
+        1
+      ],
+      "latent_image": [
+        "137:98",
+        2
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "137:89": {
+    "inputs": {
+      "text": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "137:84",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "137:128": {
+    "inputs": {
+      "value": 20
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Steps"
+    }
+  },
+  "137:87": {
+    "inputs": {
+      "samples": [
+        "137:85",
+        0
+      ],
+      "vae": [
+        "137:90",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "137:93": {
+    "inputs": {
+      "text": "Stationary fixed camera view of a distinguished man, stands upright on a high simple stool in a seamless black studio environment. The floor and background are a pure black, creating a clean black space. He stays silent, without saying a word, and looks front, maintains a calm and composed listening expression, with his mouth closed. She exhibits minimal movement — only natural blinks, very subtle shifts in his eye direction, reflecting a quiet, listener presence. His hands remain completely still and fixed in place throughout, resting gently near her lap without any movement. His hands rest still near his lap, and his neatly styled hair remains undisturbed. His gaze is steady and forward, conveying focused attentiveness without talking. A soft shadow beneath the stool adds a sense of depth to the otherwise pure black background. The lighting is bright and even, with cinematic softness. Captured in a full-body shot, the video emphasizes stillness and silence, presenting a professional and reflective atmosphere without any speech.",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "137:84",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "137:131": {
+    "inputs": {
+      "value": true
+    },
+    "class_type": "PrimitiveBoolean",
+    "_meta": {
+      "title": "Enable 4steps LoRA?"
+    }
+  },
+  "137:90": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "137:84": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "137:96": {
+    "inputs": {
+      "unet_name": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "137:95": {
+    "inputs": {
+      "unet_name": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "137:103": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "137:117",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "137:127": {
+    "inputs": {
+      "value": 10
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "split_step"
+    }
+  },
+  "137:101": {
+    "inputs": {
+      "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+      "strength_model": 1.0000000000000002,
+      "model": [
+        "137:95",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "137:126": {
+    "inputs": {
+      "value": 3.5
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "CFG"
+    }
+  },
+  "137:116": {
+    "inputs": {
+      "switch": [
+        "137:131",
+        0
+      ],
+      "on_false": [
+        "137:95",
+        0
+      ],
+      "on_true": [
+        "137:101",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (Model)"
+    }
+  },
+  "137:117": {
+    "inputs": {
+      "switch": [
+        "137:131",
+        0
+      ],
+      "on_false": [
+        "137:96",
+        0
+      ],
+      "on_true": [
+        "137:102",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (Model)"
+    }
+  },
+  "137:119": {
+    "inputs": {
+      "switch": [
+        "137:131",
+        0
+      ],
+      "on_false": [
+        "137:128",
+        0
+      ],
+      "on_true": [
+        "137:118",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (Steps)"
+    }
+  },
+  "137:120": {
+    "inputs": {
+      "switch": [
+        "137:131",
+        0
+      ],
+      "on_false": [
+        "137:126",
+        0
+      ],
+      "on_true": [
+        "137:122",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (CFG)"
+    }
+  },
+  "137:125": {
+    "inputs": {
+      "switch": [
+        "137:131",
+        0
+      ],
+      "on_false": [
+        "137:127",
+        0
+      ],
+      "on_true": [
+        "137:124",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Switch (Split Step)"
+    }
+  },
+  "137:122": {
+    "inputs": {
+      "value": 1
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "CFG"
+    }
+  }
+}
