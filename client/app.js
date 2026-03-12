@@ -217,9 +217,9 @@
       case 'video_status': {
         videoStatusEl.style.display = 'block';
         const statusMap = {
-          preprocessing: '당신의 모습을 미래로 다듬고 있어요.',
-          uploading: '당신의 이미지를 불러오고 있어요.',
-          generating: '당신의 미래 자아를 호출하고 있어요.',
+          preprocessing: '미래의 당신을 불러오고 있어요. 5분 뒤 RoF Studio에 방문해 주세요.',
+          uploading: '미래의 당신을 불러오고 있어요. 5분 뒤 RoF Studio에 방문해 주세요.',
+          generating: '미래의 당신을 불러오고 있어요. 5분 뒤 RoF Studio에 방문해 주세요.',
         };
         videoStatusEl.querySelector('.video-status-text').textContent = statusMap[msg.status] || msg.status;
         break;
@@ -228,7 +228,7 @@
       case 'video_progress': {
         const pct = msg.total > 0 ? Math.round((msg.finished / msg.total) * 100) : 0;
         videoProgressFill.style.width = `${pct}%`;
-        videoStatusEl.querySelector('.video-status-text').textContent = `비디오 생성 중... (${msg.finished}/${msg.total} 노드)`;
+        videoStatusEl.querySelector('.video-status-text').textContent = `4분 뒤 RoF Studio에 방문해 주세요.... (${msg.finished}/${msg.total} 노드)`;
         break;
       }
 

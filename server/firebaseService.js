@@ -149,6 +149,36 @@ async function saveGeneratedVideo(userId, videoData) {
   }
 }
 
+// ── 음성 파일 저장 → voice/{userId} ──
+async function saveVoice(userId, audioBuffer, originalFileName, originalMimeType) {
+  if (!isReady()) return null;
+  try {
+    const now = admin.firestore.Timestamp.now();
+    const uniqueSuffix = `${Date.now()}-${Math.floor(Math.random() * 1000000000)}`;
+    const mp3FileName = `voice_${userId}_${uniqueSuffix}.mp3`;
+    const audioBase64 = audioBuffer.toString('base64');
+
+    await db.collection('voice').doc(userId).set({
+      audioData: audioBase64,
+      audioType: 'audio/mp3',
+      converted: false,
+      createdAt: now,
+      mp3File: mp3FileName,
+      originalAudioType: originalMimeType || 'audio/mpeg',
+      originalFile: mp3FileName,
+      originalFileName: originalFileName || 'recorded_voice.mp3',
+      timestamp: now,
+      userId,
+    });
+
+    console.log(`[FIREBASE] Voice saved for user: ${userId}`);
+    return mp3FileName;
+  } catch (err) {
+    console.error('[FIREBASE] Voice save failed:', err.message);
+    return null;
+  }
+}
+
 // ── 오디오 업로드 ──
 async function uploadAudio(sessionId, audioBuffer, mimeType = 'audio/webm') {
   if (!initialized || !bucket) {
@@ -183,6 +213,7 @@ module.exports = {
   loginUser,
   saveConversation,
   saveExhibPersona,
+  saveVoice,
   saveChatHistory,
   saveGeneratedVideo,
   uploadAudio,

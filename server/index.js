@@ -5,6 +5,7 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 const path = require('path');
 
+const multer = require('multer');
 const deepgramHandler = require('./deepgramHandler');
 const agentService = require('./agentService');
 const sessionManager = require('./sessionManager');
@@ -12,6 +13,8 @@ const firebaseService = require('./firebaseService');
 const comfyuiService = require('./comfyuiService');
 const geminiImageGen = require('./gemini-image-gen');
 const questions = require('./questions.json');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const app = express();
 const server = http.createServer(app);
@@ -82,6 +85,35 @@ app.post('/api/login', async (req, res) => {
   } catch (err) {
     console.error('[AUTH] Login failed:', err.message);
     res.status(401).json({ error: err.message });
+  }
+});
+
+// ── 음성 파일 업로드 ──
+app.post('/upload-voice', upload.single('voice'), async (req, res) => {
+  try {
+    const userId = req.body.userId;
+    if (!userId) {
+      return res.status(400).json({ error: '사용자 ID가 필요합니다' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: '음성 파일이 필요합니다' });
+    }
+
+    const result = await firebaseService.saveVoice(
+      userId,
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+    );
+
+    if (!result) {
+      return res.status(500).json({ error: '음성 저장에 실패했습니다' });
+    }
+
+    res.json({ success: true, userId, mp3File: result });
+  } catch (err) {
+    console.error('[VOICE] Upload failed:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -355,6 +387,9 @@ async function handleSessionComplete(sessionId, ws, userId) {
     if (lastAudio && lastAudio.length > 0) {
       audioUrl = await firebaseService.uploadAudio(sessionId, lastAudio);
       if (audioUrl) sessionManager.setAudioUrl(sessionId, audioUrl);
+
+      const voiceUserId = userId || sessionId;
+      await firebaseService.saveVoice(voiceUserId, lastAudio, 'recorded_voice.mp3', 'audio/mpeg');
     }
 
     const sessionData = sessionManager.toJSON(sessionId);
