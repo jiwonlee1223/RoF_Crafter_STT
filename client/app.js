@@ -74,10 +74,10 @@
       case 'session_start':
         sessionId = msg.session_id;
         sessionIdEl.textContent = sessionId.slice(0, 8) + '...';
-        totalQuestions = msg.total_questions;
+        totalQuestions = msg.max_turns || 10;
         questionIndex = 0;
         currentQuestion = msg.question;
-        updateProgress(1, totalQuestions);
+        updateProgress(msg.turn || 1, totalQuestions);
         chatMessages.innerHTML = '';
         addChatBubble('agent', msg.question.text);
         speakThenReady(msg.question.text);
@@ -96,16 +96,21 @@
         break;
 
       case 'transcript_final':
+        console.log('[CLIENT] transcript_final received:', msg.text);
         liveTranscriptSection.style.display = 'none';
         if (msg.text) {
           finishRecording(msg.text, msg);
         }
         break;
 
+      case 'agent_thinking':
+        micLabel.textContent = '생각 중...';
+        btnStart.disabled = true;
+        break;
+
       case 'next_question':
-        questionIndex = msg.question_index;
         currentQuestion = msg.question;
-        updateProgress(questionIndex + 1, msg.total_questions);
+        updateProgress(msg.turn || questionIndex + 1, msg.max_turns || totalQuestions);
         addChatBubble('agent', msg.question.text);
         speakThenReady(msg.question.text);
         break;
@@ -129,7 +134,7 @@
   // --- TTS 재생 → 마이크 활성화 ---
   function speakThenReady(text) {
     btnStart.disabled = true;
-    micLabel.textContent = '듣는 중...';
+    micLabel.textContent = '발화 중...';
     btnStart.classList.remove('recording');
     btnStart.classList.add('speaking');
     isSpeaking = true;
@@ -187,6 +192,12 @@
     if (isRecording) return;
 
     try {
+      // Deepgram 세션을 먼저 생성 요청 (오디오보다 먼저 도착해야 함)
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'start_recording' }));
+        console.log('[CLIENT] start_recording sent');
+      }
+
       mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -258,6 +269,7 @@
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'stop_recording' }));
+      console.log('[CLIENT] stop_recording sent');
     }
   }
 
@@ -359,19 +371,22 @@
   }
 
   function updateProgress(current, total) {
-    const pct = (current / total) * 100;
+    const pct = Math.min((current / total) * 100, 100);
     progressFill.style.width = `${pct}%`;
-    progressText.textContent = `질문 ${current} / ${total}`;
+    progressText.textContent = `대화 ${current} / ${total}`;
   }
 
   function updateMetrics(data) {
+    if (!metricsPanel) return;
     metricsPanel.style.display = 'block';
-    metricEngine.textContent = 'Deepgram';
-    metricEngine.style.color = 'var(--accent-dg)';
-    metricLatency.textContent = data.latency_ms ? `${data.latency_ms} ms` : '- ms';
-    metricConfidence.textContent = data.confidence
+    if (metricEngine) {
+      metricEngine.textContent = 'Deepgram';
+      metricEngine.style.color = 'var(--accent-dg)';
+    }
+    if (metricLatency) metricLatency.textContent = data.latency_ms ? `${data.latency_ms} ms` : '- ms';
+    if (metricConfidence) metricConfidence.textContent = data.confidence
       ? `${(data.confidence * 100).toFixed(1)}%` : 'N/A';
-    metricDuration.textContent = data.audio_duration_sec
+    if (metricDuration) metricDuration.textContent = data.audio_duration_sec
       ? `${data.audio_duration_sec.toFixed(1)} sec` : '- sec';
   }
 

@@ -11,12 +11,6 @@ function init() {
   console.log('[DEEPGRAM] Client initialized');
 }
 
-/**
- * Deepgram 실시간 STT 세션을 생성한다.
- * @param {Function} onTranscript - (text, isFinal, confidence) 콜백
- * @param {Function} onError - (error) 콜백
- * @returns {{ send, close }} 오디오 청크 전송/종료 핸들
- */
 function createLiveSession(onTranscript, onError) {
   if (!deepgramClient) {
     onError(new Error('Deepgram client not initialized'));
@@ -28,34 +22,29 @@ function createLiveSession(onTranscript, onError) {
     language: 'ko',
     smart_format: true,
     interim_results: true,
-    utterance_end_ms: 1500,
-    vad_events: true,
     encoding: 'linear16',
     sample_rate: 16000,
   });
 
   const startTime = Date.now();
+  let isOpen = false;
+  const pendingChunks = [];
 
   connection.on(LiveTranscriptionEvents.Open, () => {
     console.log('[DEEPGRAM] Connection opened');
+    isOpen = true;
+    // 버퍼에 쌓인 청크를 모두 전송
+    while (pendingChunks.length > 0) {
+      connection.send(pendingChunks.shift());
+    }
+    console.log(`[DEEPGRAM] Flushed ${pendingChunks.length} buffered chunks`);
   });
 
   connection.on(LiveTranscriptionEvents.Transcript, (data) => {
     const alt = data.channel?.alternatives?.[0];
-    if (!alt) return;
+    if (!alt || !alt.transcript) return;
 
-    const transcript = alt.transcript;
-    if (!transcript) return;
-
-    const isFinal = data.is_final;
-    const confidence = alt.confidence || 0;
-    const latency = Date.now() - startTime;
-
-    onTranscript(transcript, isFinal, confidence, latency);
-  });
-
-  connection.on(LiveTranscriptionEvents.UtteranceEnd, () => {
-    onTranscript('', true, 0, Date.now() - startTime, true);
+    onTranscript(alt.transcript, data.is_final, alt.confidence || 0, Date.now() - startTime);
   });
 
   connection.on(LiveTranscriptionEvents.Error, (err) => {
@@ -65,12 +54,15 @@ function createLiveSession(onTranscript, onError) {
 
   connection.on(LiveTranscriptionEvents.Close, () => {
     console.log('[DEEPGRAM] Connection closed');
+    isOpen = false;
   });
 
   return {
-    send: (audioChunk) => {
-      if (connection.getReadyState() === 1) {
-        connection.send(audioChunk);
+    send: (chunk) => {
+      if (isOpen) {
+        connection.send(chunk);
+      } else {
+        pendingChunks.push(chunk);
       }
     },
     close: () => {

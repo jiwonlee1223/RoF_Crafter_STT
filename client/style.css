@@ -291,13 +291,26 @@ body {
   color: rgba(255, 255, 255, 0.5);
 }
 
-/* 실시간 전사 */
+/* 실시간 전사 — 화면 하단 고정 오버레이 */
 .live-transcript {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
   background: var(--surface);
-  border: 1px solid var(--primary);
-  border-radius: var(--radius-sm);
-  padding: 14px 16px;
-  animation: pulse-border 2s infinite;
+  border-top: 2px solid var(--primary);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 14px 20px;
+  margin: 0 auto;
+  max-width: 680px;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+  animation: pulse-border 2s infinite, slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 @keyframes pulse-border {
