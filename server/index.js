@@ -12,7 +12,7 @@ const sessionManager = require('./sessionManager');
 const firebaseService = require('./firebaseService');
 const comfyuiService = require('./comfyuiService');
 const geminiImageGen = require('./gemini-image-gen');
-const questions = require('./questions.json');
+const questions = require('./questions');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -47,7 +47,7 @@ agentService.init();
 firebaseService.init();
 comfyuiService.init();
 
-console.log(`[SERVER] Loaded ${MAX_TURNS} questions from questions.json`);
+console.log(`[SERVER] Loaded ${MAX_TURNS} questions from questions.js`);
 
 app.use(express.static(path.join(__dirname, '..', 'client')));
 app.use(express.json());
@@ -126,12 +126,15 @@ app.get('/api/session/:sessionId', (req, res) => {
 wss.on('connection', async (ws, req) => {
   const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
   const loggedInUserId = params.get('userId') || null;
+  const userName = params.get('userName') || null;
+  const userGender = params.get('gender') || 'female';
+  const birthDateTime = params.get('birthDateTime') || null;
 
   const session = sessionManager.createSession('deepgram');
   const sessionId = session.session_id;
   let questionIndex = 0;
 
-  console.log(`[WS] New session: ${sessionId}, userId: ${loggedInUserId || '(anonymous)'}`);
+  console.log(`[WS] New session: ${sessionId}, userId: ${loggedInUserId || '(anonymous)'}, name: ${userName || '-'}, gender: ${userGender}, birth: ${birthDateTime || '-'}`);
 
   let dgSession = null;
   let audioStartTime = null;
@@ -139,11 +142,11 @@ wss.on('connection', async (ws, req) => {
   let lastConfidence = 0;
   let lastLatency = 0;
 
-  // 첫 인사 — questions.json[0]을 참고
+  // 첫 인사 — questions[0]을 참고, 사용자 이름 반영
   const firstRef = questions.questions[0].text;
   let greeting;
   try {
-    greeting = await agentService.generateGreeting(firstRef);
+    greeting = await agentService.generateGreeting(firstRef, userName);
   } catch (err) {
     console.error('[AGENT] Greeting failed:', err.message);
     greeting = firstRef;
@@ -255,11 +258,11 @@ wss.on('connection', async (ws, req) => {
         // 모든 질문 소진 → 세션 종료
         if (questionIndex >= MAX_TURNS) {
           console.log(`[FLOW] All ${MAX_TURNS} questions done, completing session`);
-          await handleSessionComplete(sessionId, ws, loggedInUserId);
+          await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime);
           break;
         }
 
-        // GPT로 다음 응답 생성 — questions.json[questionIndex]를 참고
+        // GPT로 다음 응답 생성 — questions[questionIndex]를 참고
         const nextRef = questions.questions[questionIndex].text;
         console.log(`[FLOW] Generating response for question ${questionIndex + 1}/${MAX_TURNS} (ref: "${nextRef}")`);
 
@@ -269,7 +272,7 @@ wss.on('connection', async (ws, req) => {
           const history = sessionManager.getSession(sessionId).conversation
             .map(t => ({ role: t.role, text: t.text }));
 
-          const agentResponse = await agentService.generateResponse(history, nextRef);
+          const agentResponse = await agentService.generateResponse(history, nextRef, userName);
           sessionManager.addTurn(sessionId, 'agent', agentResponse);
           questionIndex++;
 
@@ -287,14 +290,14 @@ wss.on('connection', async (ws, req) => {
       }
 
       case 'end_session': {
-        await handleSessionComplete(sessionId, ws, loggedInUserId);
+        await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime);
         break;
       }
 
       // 클라이언트에서 비디오 생성 요청
       case 'generate_video': {
         const userId = msg.userId || loggedInUserId || sessionId;
-        const gender = msg.gender || 'female';
+        const gender = msg.gender || userGender || 'female';
         console.log(`[VIDEO] generate_video request: userId=${userId}, gender=${gender}`);
 
         try {
@@ -309,7 +312,7 @@ wss.on('connection', async (ws, req) => {
           ws.send(JSON.stringify({ type: 'video_status', status: 'preprocessing' }));
           let imageToUpload = rawImage;
           try {
-            const geminiPrompt = geminiImageGen.getBaseImagePrompt(gender);
+            const geminiPrompt = geminiImageGen.getBaseImagePrompt(gender, birthDateTime);
             console.log(`[VIDEO] Gemini preprocessing with prompt (${geminiPrompt.length} chars)`);
             imageToUpload = await geminiImageGen.generateImageWithGemini({
               imageBuffer: rawImage,
@@ -380,7 +383,7 @@ wss.on('connection', async (ws, req) => {
   });
 });
 
-async function handleSessionComplete(sessionId, ws, userId) {
+async function handleSessionComplete(sessionId, ws, userId, birthDateTime) {
   try {
     const lastAudio = sessionManager.getLastAnswerAudio(sessionId);
     let audioUrl = null;
@@ -407,17 +410,17 @@ async function handleSessionComplete(sessionId, ws, userId) {
 
     // 페르소나 생성은 비동기로 (클라이언트 응답 블로킹 없이)
     const history = sessionData.conversation || [];
-    generateAndSavePersona(docUserId, history);
+    generateAndSavePersona(docUserId, history, birthDateTime);
   } catch (err) {
     console.error('[SESSION] Save failed:', err.message);
     ws.send(JSON.stringify({ type: 'error', message: 'Session save failed' }));
   }
 }
 
-async function generateAndSavePersona(userId, conversationHistory) {
+async function generateAndSavePersona(userId, conversationHistory, birthDateTime) {
   try {
     console.log(`[PERSONA] Generating exhib persona for: ${userId}`);
-    const { personaText, cardText } = await agentService.generateExhibPersona(conversationHistory);
+    const { personaText, cardText } = await agentService.generateExhibPersona(conversationHistory, birthDateTime);
     await firebaseService.saveExhibPersona(userId, personaText, cardText);
     console.log(`[PERSONA] Exhib persona complete for: ${userId}`);
   } catch (err) {

@@ -31,6 +31,42 @@
     </div>
   </div>
 
+  <!-- 프로필 설정 화면 (로그인 후, 대화 전) -->
+  <div id="profile-screen" class="login-screen" style="display:none;">
+    <div class="login-card">
+      <h1 class="login-title">프로필 설정</h1>
+      <p class="login-subtitle">대화를 시작하기 전에 정보를 입력해주세요</p>
+      <form id="profile-form" class="login-form" autocomplete="off">
+        <div class="input-group">
+          <label for="profile-name">이름</label>
+          <input type="text" id="profile-name" placeholder="이름을 입력하세요" required />
+        </div>
+        <div class="input-group">
+          <label>성별</label>
+          <div class="gender-radio-group">
+            <label class="gender-radio">
+              <input type="radio" name="profile-gender" value="female" checked />
+              <span class="gender-radio-label">여성</span>
+            </label>
+            <label class="gender-radio">
+              <input type="radio" name="profile-gender" value="male" />
+              <span class="gender-radio-label">남성</span>
+            </label>
+          </div>
+        </div>
+        <div class="input-group">
+          <label for="profile-birthdate">생년월일</label>
+          <input type="date" id="profile-birthdate" required />
+        </div>
+        <div class="input-group">
+          <label for="profile-birthtime">태어난 시간 (선택)</label>
+          <input type="time" id="profile-birthtime" />
+        </div>
+        <button type="submit" id="btn-start-chat" class="btn-primary login-btn">대화 시작</button>
+      </form>
+    </div>
+  </div>
+
   <div id="app" style="display:none;">
 
     <!-- 상태 바 -->
@@ -112,10 +148,6 @@
           <input type="file" id="video-image-input" accept="image/*" />
           <span>프로필 이미지 선택</span>
         </label>
-        <select id="video-gender" class="gender-select">
-          <option value="female">여성</option>
-          <option value="male">남성</option>
-        </select>
         <button id="btn-generate-video" class="btn-primary" disabled>비디오 생성</button>
       </div>
       <div id="video-status" class="video-status" style="display:none;">

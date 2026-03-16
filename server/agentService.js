@@ -27,13 +27,14 @@ function init() {
  * @param {string} referenceQuestion - questions.json에서 가져온 참고 질문
  * @returns {Promise<string>}
  */
-async function generateResponse(conversationHistory, referenceQuestion) {
+async function generateResponse(conversationHistory, referenceQuestion, userName) {
   if (!openai) {
     throw new Error('OpenAI client not initialized');
   }
 
+  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다. 대화 중 자연스럽게 이름을 불러주세요.\n` : '';
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: nameContext + SYSTEM_PROMPT },
   ];
 
   for (const turn of conversationHistory) {
@@ -65,15 +66,16 @@ async function generateResponse(conversationHistory, referenceQuestion) {
  * 첫 인사를 생성한다. 참고 질문의 의도를 반영.
  * @param {string} referenceQuestion - questions.json의 첫 번째 질문
  */
-async function generateGreeting(referenceQuestion) {
+async function generateGreeting(referenceQuestion, userName) {
   if (!openai) {
     return referenceQuestion || '안녕하세요! 오늘 기분이 어떠세요?';
   }
 
+  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다. 인사할 때 이름을 불러주세요.\n` : '';
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: nameContext + SYSTEM_PROMPT },
       {
         role: 'system',
         content: `[참고 질문] 대화를 시작하세요. 첫 인사와 함께, 다음 질문의 의도를 반영하여 자연스럽게 질문하세요: "${referenceQuestion}"`,
@@ -105,20 +107,46 @@ const PERSONA_SYSTEM_PROMPT = `당신은 사용자의 10년 후 미래 모습을
  * @param {Array} conversationHistory - [{role: 'agent'|'user', text: string}]
  * @returns {Promise<{personaText: string, cardText: string}>}
  */
-async function generateExhibPersona(conversationHistory) {
+async function generateExhibPersona(conversationHistory, birthDateTime) {
   if (!openai) throw new Error('OpenAI client not initialized');
 
-  const conversationSummary = conversationHistory
+  const userContext = conversationHistory
     .map(t => `${t.role === 'agent' ? '질문' : '답변'}: ${t.text}`)
     .join('\n');
 
+  const birthInfo = birthDateTime
+    ? `\n[사용자 생년월일시]\n${birthDateTime}\n`
+    : '';
+
+  const userPrompt = `다음의 출력 항목 형식에 따라 사용자의 미래시점의 페르소나를 묘사하세요.
+{
+    직업, 사회적 위치 (Profession, Social Status)
+    가족 구성 (결혼 유무, 자녀 유무 등 포함) (Family Status)
+    삶의 만족도, 감정 상태 (Emotional Status)
+    성격 (Personality)
+    가치관 (무엇에 가치를 두는가) (Value)
+    꿈, 바램(Desire)
+    삶의 주요 원동력(Motivation)
+    우려(Concerns)
+    주중에 가장 즐겨 입는 패션 스타일 (Fashion Style)
+}
+${birthInfo}
+[참고 데이터]
+${userContext}
+
+[출력 지침]
+- 각 항목을 명확히 구분하여 작성
+- 각 항목은 2-4문장으로 구체적으로 기술
+- 서술형이 아닌 사실적 기술 방식 사용
+- 10년 후의 구체적인 나이와 상황 반영`;
+
   const personaResponse = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-5.4',
     messages: [
       { role: 'system', content: PERSONA_SYSTEM_PROMPT },
-      { role: 'user', content: `다음은 사용자와의 대화 내용입니다:\n\n${conversationSummary}\n\n위 대화를 바탕으로 이 사용자의 10년 후 미래 모습을 상세히 묘사해주세요.` },
+      { role: 'user', content: userPrompt },
     ],
-    max_tokens: 1000,
+    max_completion_tokens: 2000,
     temperature: 0.85,
   });
 
@@ -126,12 +154,12 @@ async function generateExhibPersona(conversationHistory) {
   console.log(`[AGENT] ExhibPersona generated (${personaText.length} chars)`);
 
   const cardResponse = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-5.4',
     messages: [
       { role: 'system', content: '다음 페르소나 텍스트를 정확히 3문장으로 축약하세요. 핵심 키워드와 미래 방향성을 담아 간결하게 작성하세요.' },
       { role: 'user', content: personaText },
     ],
-    max_tokens: 200,
+    max_completion_tokens: 1000,
     temperature: 0.7,
   });
 

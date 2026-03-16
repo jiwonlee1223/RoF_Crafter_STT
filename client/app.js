@@ -13,6 +13,13 @@
   const userBadge = document.getElementById('user-badge');
   const btnLogout = document.getElementById('btn-logout');
 
+  // --- Profile DOM ---
+  const profileScreen = document.getElementById('profile-screen');
+  const profileForm = document.getElementById('profile-form');
+  const profileNameInput = document.getElementById('profile-name');
+  const profileBirthdateInput = document.getElementById('profile-birthdate');
+  const profileBirthtimeInput = document.getElementById('profile-birthtime');
+
   // --- App DOM ---
   const connectionStatus = document.getElementById('connection-status');
   const sessionIdEl = document.getElementById('session-id');
@@ -37,7 +44,6 @@
   // Video DOM
   const videoSection = document.getElementById('video-section');
   const videoImageInput = document.getElementById('video-image-input');
-  const videoGender = document.getElementById('video-gender');
   const btnGenerateVideo = document.getElementById('btn-generate-video');
   const videoStatusEl = document.getElementById('video-status');
   const videoProgressFill = document.getElementById('video-progress-fill');
@@ -49,6 +55,7 @@
   let ws = null;
   let sessionId = null;
   let loggedInUserId = null;
+  let userProfile = { name: '', gender: 'female', birthDateTime: '' };
   let audioContext = null;
   let analyserNode = null;
   let mediaStream = null;
@@ -94,9 +101,7 @@
 
       loggedInUserId = data.userId;
       loginScreen.style.display = 'none';
-      appEl.style.display = 'flex';
-      userBadge.textContent = loggedInUserId;
-      connectWebSocket();
+      profileScreen.style.display = 'flex';
     } catch (err) {
       showLoginError(err.message);
     } finally {
@@ -117,11 +122,35 @@
   btnLogout.addEventListener('click', () => {
     if (ws) ws.close();
     loggedInUserId = null;
+    userProfile = { name: '', gender: 'female', birthDateTime: '' };
     appEl.style.display = 'none';
+    profileScreen.style.display = 'none';
     loginScreen.style.display = 'flex';
     loginUserIdInput.value = '';
     loginPasswordInput.value = '';
     hideLoginError();
+  });
+
+  // --- Profile Setup ---
+  profileForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = profileNameInput.value.trim();
+    const gender = document.querySelector('input[name="profile-gender"]:checked').value;
+    const birthDate = profileBirthdateInput.value;
+    const birthTime = profileBirthtimeInput.value || '';
+
+    if (!name || !birthDate) return;
+
+    userProfile = {
+      name,
+      gender,
+      birthDateTime: birthTime ? `${birthDate}T${birthTime}` : birthDate,
+    };
+
+    profileScreen.style.display = 'none';
+    appEl.style.display = 'flex';
+    userBadge.textContent = `${name} (${loggedInUserId})`;
+    connectWebSocket();
   });
 
   // --- WebSocket (Deepgram 고정) ---
@@ -129,8 +158,12 @@
     if (ws) ws.close();
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const userParam = loggedInUserId ? `&userId=${encodeURIComponent(loggedInUserId)}` : '';
-    const wsUrl = `${protocol}//${location.host}?engine=deepgram${userParam}`;
+    const params = new URLSearchParams({ engine: 'deepgram' });
+    if (loggedInUserId) params.set('userId', loggedInUserId);
+    if (userProfile.name) params.set('userName', userProfile.name);
+    if (userProfile.gender) params.set('gender', userProfile.gender);
+    if (userProfile.birthDateTime) params.set('birthDateTime', userProfile.birthDateTime);
+    const wsUrl = `${protocol}//${location.host}?${params.toString()}`;
 
     ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
@@ -584,7 +617,7 @@
       ws.send(JSON.stringify({
         type: 'generate_video',
         userId: loggedInUserId || sessionId,
-        gender: videoGender.value,
+        gender: userProfile.gender,
         fileBuffer: Array.from(new Uint8Array(arrayBuffer)),
       }));
     });

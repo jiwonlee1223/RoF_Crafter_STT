@@ -767,6 +767,47 @@ body {
   text-align: center;
 }
 
+/* 성별 라디오 버튼 */
+.gender-radio-group {
+  display: flex;
+  gap: 12px;
+}
+
+.gender-radio {
+  flex: 1;
+  cursor: pointer;
+}
+
+.gender-radio input[type="radio"] {
+  display: none;
+}
+
+.gender-radio-label {
+  display: block;
+  padding: 10px;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.gender-radio input[type="radio"]:checked + .gender-radio-label {
+  border-color: var(--primary);
+  background: rgba(108, 92, 231, 0.12);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* date/time 입력 */
+.input-group input[type="date"],
+.input-group input[type="time"] {
+  color-scheme: dark;
+}
+
 /* 사용자 배지 */
 .user-badge {
   padding: 4px 10px;
