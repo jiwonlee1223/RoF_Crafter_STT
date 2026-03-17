@@ -306,6 +306,9 @@
       sampleRate: TTS_SAMPLE_RATE,
     });
 
+    const gainNode = ttsAudioCtx.createGain();
+    gainNode.connect(ttsAudioCtx.destination);
+
     try {
       const res = await fetch('/api/tts', {
         method: 'POST',
@@ -350,11 +353,15 @@
 
         const src = ttsAudioCtx.createBufferSource();
         src.buffer = buf;
-        src.connect(ttsAudioCtx.destination);
+        src.connect(gainNode);
         src.start(scheduledTime);
         scheduledTime += buf.duration;
         lastSource = src;
       }
+
+      const FADE_OUT_SEC = 0.08;
+      gainNode.gain.setValueAtTime(1, Math.max(0, scheduledTime - FADE_OUT_SEC));
+      gainNode.gain.linearRampToValueAtTime(0, scheduledTime);
 
       if (lastSource) {
         lastSource.onended = () => {
