@@ -277,7 +277,7 @@
 
       case 'error':
         console.error('[Server]', msg.message);
-        addSystemMessage(`오류: ${msg.message}`);
+        addSystemMessage(`Error: ${msg.message}`);
         if (btnGenerateVideo) {
           btnGenerateVideo.disabled = false;
           btnGenerateVideo.classList.remove('btn-video-loading');
@@ -286,41 +286,60 @@
     }
   }
 
-  // --- TTS 재생 → 마이크 활성화 ---
+  // --- TTS 재생 (ElevenLabs) → 마이크 활성화 ---
+  let ttsAudio = null;
+
   function speakThenReady(text) {
     btnStart.disabled = true;
-    micLabel.textContent = '발화 중...';
+    micLabel.textContent = 'Speaking...';
     btnStart.classList.remove('recording');
     btnStart.classList.add('speaking');
     isSpeaking = true;
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ko-KR';
-    utterance.rate = 0.95;
+    if (ttsAudio) {
+      ttsAudio.pause();
+      ttsAudio = null;
+    }
 
-    const voices = speechSynthesis.getVoices();
-    const koVoice = voices.find(v => v.lang.startsWith('ko'));
-    if (koVoice) utterance.voice = koVoice;
-
-    utterance.onend = () => {
-      isSpeaking = false;
-      btnStart.classList.remove('speaking');
-      setMicReady();
-    };
-
-    utterance.onerror = () => {
-      isSpeaking = false;
-      btnStart.classList.remove('speaking');
-      setMicReady();
-    };
-
-    speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
+    fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to request TTS');
+        return res.blob();
+      })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        ttsAudio = new Audio(url);
+        ttsAudio.onended = () => {
+          URL.revokeObjectURL(url);
+          ttsAudio = null;
+          isSpeaking = false;
+          btnStart.classList.remove('speaking');
+          setMicReady();
+        };
+        ttsAudio.onerror = () => {
+          URL.revokeObjectURL(url);
+          ttsAudio = null;
+          isSpeaking = false;
+          btnStart.classList.remove('speaking');
+          setMicReady();
+        };
+        return ttsAudio.play();
+      })
+      .catch(err => {
+        console.error('[TTS] Failed to play audio with ElevenLabs:', err);
+        isSpeaking = false;
+        btnStart.classList.remove('speaking');
+        setMicReady();
+      });
   }
 
   function setMicReady() {
     btnStart.disabled = false;
-    micLabel.textContent = '꾹 눌러서 말하기';
+    // micLabel.textContent = 'Press and hold to speak';
     if (!hasUserPressedRecordOnce && recordGuideBubble) {
       recordGuideBubble.classList.add('visible');
       recordGuideBubble.setAttribute('aria-hidden', 'false');
@@ -397,14 +416,14 @@
 
       isRecording = true;
       btnStart.classList.add('recording');
-      micLabel.textContent = '녹음 중...';
+      micLabel.textContent = 'Recording...';
       liveTranscript.textContent = '';
       liveTranscriptSection.style.display = 'block';
 
       drawVisualizer();
     } catch (err) {
       console.error('[Mic] Access denied:', err);
-      addSystemMessage('마이크 접근 권한이 필요합니다');
+      addSystemMessage('Microphone access is required');
     }
   }
 
@@ -414,7 +433,7 @@
     isRecording = false;
 
     btnStart.classList.remove('recording');
-    micLabel.textContent = '처리 중...';
+    micLabel.textContent = 'Processing...';
     btnStart.disabled = true;
 
     if (animFrameId) {
@@ -533,7 +552,7 @@
   function updateProgress(current, total) {
     const pct = Math.min((current / total) * 100, 100);
     progressFill.style.width = `${pct}%`;
-    progressText.textContent = `대화 ${current} / ${total}`;
+    progressText.textContent = `Conversation ${current} / ${total}`;
   }
 
   function updateMetrics(data) {
@@ -553,17 +572,13 @@
   // --- Session Complete ---
   function showSessionComplete(sessionData) {
     btnStart.disabled = true;
-    micLabel.textContent = '완료';
+    micLabel.textContent = 'Completed';
     btnEndSession.style.display = 'none';
 
     const banner = document.createElement('div');
     banner.className = 'session-complete-banner';
     banner.innerHTML = `
-      <h3>대화가 완료되었습니다</h3>
-      <p>총 ${sessionData.conversation.length}개의 대화가 기록되었습니다.</p>
-      <p style="margin-top: 4px; font-family: monospace; font-size: 0.75rem;">
-        세션: ${sessionData.session_id}
-      </p>
+      <h3>대화가 종료되었습니다</h3>
     `;
     chatMessages.appendChild(banner);
     conversation.scrollTop = conversation.scrollHeight;
@@ -591,8 +606,8 @@
       btnGenerateVideo.disabled = !hasFile;
       if (videoImageLabelText) {
         videoImageLabelText.textContent = hasFile
-          ? (videoImageInput.files[0]?.name || '이미지 선택됨')
-          : '프로필 이미지 선택';
+          ? (videoImageInput.files[0]?.name || 'Image selected')
+          : 'Select profile image';
       }
     });
   }
@@ -615,11 +630,6 @@
         fileBuffer: Array.from(new Uint8Array(arrayBuffer)),
       }));
     });
-  }
-
-  // Chrome voice list
-  if (speechSynthesis.onvoiceschanged !== undefined) {
-    speechSynthesis.onvoiceschanged = () => {};
   }
 
   // --- Init ---

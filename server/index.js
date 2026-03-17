@@ -12,6 +12,7 @@ const sessionManager = require('./sessionManager');
 const firebaseService = require('./firebaseService');
 const comfyuiService = require('./comfyuiService');
 const geminiImageGen = require('./gemini-image-gen');
+const ttsService = require('./ttsService');
 const questions = require('./questions');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -46,6 +47,7 @@ deepgramHandler.init();
 agentService.init();
 firebaseService.init();
 comfyuiService.init();
+ttsService.init();
 
 console.log(`[SERVER] Loaded ${MAX_TURNS} questions from questions.js`);
 
@@ -114,6 +116,20 @@ app.post('/upload-voice', upload.single('voice'), async (req, res) => {
   } catch (err) {
     console.error('[VOICE] Upload failed:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ElevenLabs TTS ──
+app.post('/api/tts', async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: '텍스트가 필요합니다' });
+    await ttsService.streamTTS(text, res);
+  } catch (err) {
+    console.error('[TTS] Stream failed:', err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'TTS 변환 실패' });
+    }
   }
 });
 
