@@ -545,6 +545,18 @@ body {
   cursor: not-allowed;
 }
 
+/* 비디오 생성 버튼 아이콘 (Google Material Symbols) */
+.btn-icon .material-symbols-outlined {
+  font-size: 20px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* 처리 중일 때 아이콘만 dimmed */
+.btn-video-loading .material-symbols-outlined {
+  opacity: 0.4;
+}
+
 /* 스크롤바 */
 .conversation::-webkit-scrollbar {
   width: 6px;

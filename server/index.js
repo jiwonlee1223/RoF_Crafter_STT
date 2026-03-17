@@ -141,6 +141,7 @@ wss.on('connection', async (ws, req) => {
   let finalTranscript = '';
   let lastConfidence = 0;
   let lastLatency = 0;
+  let personaStylePrompt = null;
 
   // 첫 인사 — questions[0]을 참고, 사용자 이름 반영
   const firstRef = questions.questions[0].text;
@@ -290,7 +291,9 @@ wss.on('connection', async (ws, req) => {
       }
 
       case 'end_session': {
-        await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime);
+        await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, (fp) => {
+          personaStylePrompt = fp;
+        });
         break;
       }
 
@@ -312,7 +315,7 @@ wss.on('connection', async (ws, req) => {
           ws.send(JSON.stringify({ type: 'video_status', status: 'preprocessing' }));
           let imageToUpload = rawImage;
           try {
-            const geminiPrompt = geminiImageGen.getBaseImagePrompt(gender, birthDateTime);
+            const geminiPrompt = geminiImageGen.getBaseImagePrompt(gender, birthDateTime, personaStylePrompt);
             console.log(`[VIDEO] Gemini preprocessing with prompt (${geminiPrompt.length} chars)`);
             imageToUpload = await geminiImageGen.generateImageWithGemini({
               imageBuffer: rawImage,
@@ -383,7 +386,7 @@ wss.on('connection', async (ws, req) => {
   });
 });
 
-async function handleSessionComplete(sessionId, ws, userId, birthDateTime) {
+async function handleSessionComplete(sessionId, ws, userId, birthDateTime, onFashionPrompt) {
   try {
     const lastAudio = sessionManager.getLastAnswerAudio(sessionId);
     let audioUrl = null;
@@ -410,18 +413,22 @@ async function handleSessionComplete(sessionId, ws, userId, birthDateTime) {
 
     // 페르소나 생성은 비동기로 (클라이언트 응답 블로킹 없이)
     const history = sessionData.conversation || [];
-    generateAndSavePersona(docUserId, history, birthDateTime);
+    generateAndSavePersona(docUserId, history, birthDateTime, onFashionPrompt);
   } catch (err) {
     console.error('[SESSION] Save failed:', err.message);
     ws.send(JSON.stringify({ type: 'error', message: 'Session save failed' }));
   }
 }
 
-async function generateAndSavePersona(userId, conversationHistory, birthDateTime) {
+async function generateAndSavePersona(userId, conversationHistory, birthDateTime, onFashionPrompt) {
   try {
     console.log(`[PERSONA] Generating exhib persona for: ${userId}`);
-    const { personaText, cardText } = await agentService.generateExhibPersona(conversationHistory, birthDateTime);
+    const { personaText, cardText, fashionPrompt } = await agentService.generateExhibPersona(conversationHistory, birthDateTime);
     await firebaseService.saveExhibPersona(userId, personaText, cardText);
+    if (fashionPrompt && onFashionPrompt) {
+      onFashionPrompt(fashionPrompt);
+      console.log(`[PERSONA] Fashion prompt saved for video: "${fashionPrompt}"`);
+    }
     console.log(`[PERSONA] Exhib persona complete for: ${userId}`);
   } catch (err) {
     console.error(`[PERSONA] Generation failed for ${userId}:`, err.message);

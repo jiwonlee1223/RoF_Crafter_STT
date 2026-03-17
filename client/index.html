@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
 </head>
 <body>
   <!-- 로그인 화면 -->
@@ -142,13 +143,12 @@
 
     <!-- 비디오 생성 영역 -->
     <section id="video-section" class="video-section" style="display:none;">
-      <h3 class="video-title">비디오 생성</h3>
       <div id="video-controls" class="video-controls">
         <label class="file-upload-label">
           <input type="file" id="video-image-input" accept="image/*" />
-          <span>프로필 이미지 선택</span>
+          <span id="video-image-label-text">프로필 이미지 선택</span>
         </label>
-        <button id="btn-generate-video" class="btn-primary" disabled>비디오 생성</button>
+        <button id="btn-generate-video" class="btn-primary btn-icon" disabled><span class="material-symbols-outlined">videocam</span></button>
       </div>
       <div id="video-status" class="video-status" style="display:none;">
         <div class="video-status-text"></div>
@@ -172,7 +172,6 @@
 
     <section class="session-actions">
       <button id="btn-end-session" class="btn-secondary" disabled>대화 종료 및 저장</button>
-      <button id="btn-new-session" class="btn-primary" style="display:none;">새 대화 시작</button>
     </section>
   </div>
 

@@ -39,11 +39,11 @@
   const metricConfidence = document.getElementById('metric-confidence');
   const metricDuration = document.getElementById('metric-duration');
   const btnEndSession = document.getElementById('btn-end-session');
-  const btnNewSession = document.getElementById('btn-new-session');
 
   // Video DOM
   const videoSection = document.getElementById('video-section');
   const videoImageInput = document.getElementById('video-image-input');
+  const videoImageLabelText = document.getElementById('video-image-label-text');
   const btnGenerateVideo = document.getElementById('btn-generate-video');
   const videoStatusEl = document.getElementById('video-status');
   const videoProgressFill = document.getElementById('video-progress-fill');
@@ -261,7 +261,7 @@
       case 'video_progress': {
         const pct = msg.total > 0 ? Math.round((msg.finished / msg.total) * 100) : 0;
         videoProgressFill.style.width = `${pct}%`;
-        videoStatusEl.querySelector('.video-status-text').textContent = `4분 뒤 RoF Studio에 방문해 주세요.... (${msg.finished}/${msg.total} 노드)`;
+        videoStatusEl.querySelector('.video-status-text').textContent = `4분 뒤 RoF Studio에 방문해 주세요....`;
         break;
       }
 
@@ -271,7 +271,7 @@
         if (msg.speakingUrl) videoSpeaking.src = msg.speakingUrl;
         if (msg.listeningUrl) videoListening.src = msg.listeningUrl;
         btnGenerateVideo.disabled = false;
-        btnGenerateVideo.textContent = '비디오 생성';
+        btnGenerateVideo.classList.remove('btn-video-loading');
         addSystemMessage('10년 뒤 미래에서 온 당신이 RoF Studio에서 기다리고 있어요. Studio로 입장해 주세요.');
         break;
 
@@ -280,7 +280,7 @@
         addSystemMessage(`오류: ${msg.message}`);
         if (btnGenerateVideo) {
           btnGenerateVideo.disabled = false;
-          btnGenerateVideo.textContent = '비디오 생성';
+          btnGenerateVideo.classList.remove('btn-video-loading');
         }
         break;
     }
@@ -555,7 +555,6 @@
     btnStart.disabled = true;
     micLabel.textContent = '완료';
     btnEndSession.style.display = 'none';
-    btnNewSession.style.display = 'inline-block';
 
     const banner = document.createElement('div');
     banner.className = 'session-complete-banner';
@@ -585,21 +584,16 @@
     }
   });
 
-  btnNewSession.addEventListener('click', () => {
-    btnNewSession.style.display = 'none';
-    btnEndSession.style.display = 'inline-block';
-    btnEndSession.disabled = true;
-    chatMessages.innerHTML = '';
-    metricsPanel.style.display = 'none';
-    liveTranscriptSection.style.display = 'none';
-    hasUserPressedRecordOnce = false;
-    connectWebSocket();
-  });
-
   // --- Video Generation ---
   if (videoImageInput) {
     videoImageInput.addEventListener('change', () => {
-      btnGenerateVideo.disabled = !videoImageInput.files.length;
+      const hasFile = !!videoImageInput.files.length;
+      btnGenerateVideo.disabled = !hasFile;
+      if (videoImageLabelText) {
+        videoImageLabelText.textContent = hasFile
+          ? (videoImageInput.files[0]?.name || '이미지 선택됨')
+          : '프로필 이미지 선택';
+      }
     });
   }
 
@@ -609,7 +603,7 @@
       if (!file || !ws || ws.readyState !== WebSocket.OPEN) return;
 
       btnGenerateVideo.disabled = true;
-      btnGenerateVideo.textContent = '처리 중...';
+      btnGenerateVideo.classList.add('btn-video-loading');
       videoResult.style.display = 'none';
       videoProgressFill.style.width = '0%';
 
