@@ -286,55 +286,97 @@
     }
   }
 
-  // --- TTS 재생 (ElevenLabs) → 마이크 활성화 ---
-  let ttsAudio = null;
+  // --- TTS 스트리밍 재생 (ElevenLabs PCM) → 마이크 활성화 ---
+  const TTS_SAMPLE_RATE = 24000;
+  let ttsAudioCtx = null;
+  let ttsAbortCtrl = null;
 
-  function speakThenReady(text) {
+  async function speakThenReady(text) {
     btnStart.disabled = true;
-    micLabel.textContent = 'Speaking...';
+    micLabel.textContent = '발화 중...';
     btnStart.classList.remove('recording');
     btnStart.classList.add('speaking');
     isSpeaking = true;
 
-    if (ttsAudio) {
-      ttsAudio.pause();
-      ttsAudio = null;
-    }
+    if (ttsAbortCtrl) ttsAbortCtrl.abort();
+    if (ttsAudioCtx) { ttsAudioCtx.close(); ttsAudioCtx = null; }
 
-    fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to request TTS');
-        return res.blob();
-      })
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        ttsAudio = new Audio(url);
-        ttsAudio.onended = () => {
-          URL.revokeObjectURL(url);
-          ttsAudio = null;
+    ttsAbortCtrl = new AbortController();
+    ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)({
+      sampleRate: TTS_SAMPLE_RATE,
+    });
+
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: ttsAbortCtrl.signal,
+      });
+      if (!res.ok) throw new Error('TTS 요청 실패');
+
+      const reader = res.body.getReader();
+      let scheduledTime = ttsAudioCtx.currentTime;
+      let lastSource = null;
+      let leftover = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        let pcm = value;
+        if (leftover) {
+          const merged = new Uint8Array(leftover.length + pcm.length);
+          merged.set(leftover);
+          merged.set(pcm, leftover.length);
+          pcm = merged;
+          leftover = null;
+        }
+        if (pcm.length % 2 !== 0) {
+          leftover = pcm.slice(-1);
+          pcm = pcm.slice(0, -1);
+        }
+        if (pcm.length === 0) continue;
+
+        const sampleCount = pcm.length / 2;
+        const float32 = new Float32Array(sampleCount);
+        const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+        for (let i = 0; i < sampleCount; i++) {
+          float32[i] = view.getInt16(i * 2, true) / 32768;
+        }
+
+        const buf = ttsAudioCtx.createBuffer(1, sampleCount, TTS_SAMPLE_RATE);
+        buf.getChannelData(0).set(float32);
+
+        const src = ttsAudioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ttsAudioCtx.destination);
+        src.start(scheduledTime);
+        scheduledTime += buf.duration;
+        lastSource = src;
+      }
+
+      if (lastSource) {
+        lastSource.onended = () => {
           isSpeaking = false;
           btnStart.classList.remove('speaking');
+          if (ttsAudioCtx) { ttsAudioCtx.close(); ttsAudioCtx = null; }
           setMicReady();
         };
-        ttsAudio.onerror = () => {
-          URL.revokeObjectURL(url);
-          ttsAudio = null;
-          isSpeaking = false;
-          btnStart.classList.remove('speaking');
-          setMicReady();
-        };
-        return ttsAudio.play();
-      })
-      .catch(err => {
-        console.error('[TTS] Failed to play audio with ElevenLabs:', err);
+      } else {
         isSpeaking = false;
         btnStart.classList.remove('speaking');
         setMicReady();
-      });
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('[TTS] 스트리밍 재생 실패:', err);
+      }
+      isSpeaking = false;
+      btnStart.classList.remove('speaking');
+      if (ttsAudioCtx) { ttsAudioCtx.close(); ttsAudioCtx = null; }
+      setMicReady();
+    }
   }
 
   function setMicReady() {
