@@ -33,12 +33,13 @@
   const micLabel = document.getElementById('mic-label');
   const visualizerCanvas = document.getElementById('visualizer-canvas');
   const recordGuideBubble = document.getElementById('record-guide-bubble');
-  const metricsPanel = document.getElementById('metrics-panel');
-  const metricEngine = document.getElementById('metric-engine');
-  const metricLatency = document.getElementById('metric-latency');
-  const metricConfidence = document.getElementById('metric-confidence');
-  const metricDuration = document.getElementById('metric-duration');
   const btnEndSession = document.getElementById('btn-end-session');
+
+  // Voice UI DOM
+  const orbCanvas = document.getElementById('orb-canvas');
+  const orbGlow = document.getElementById('orb-glow');
+  const voiceStatusText = document.getElementById('voice-status-text');
+  const voiceSubtitle = document.getElementById('voice-subtitle');
 
   // Video DOM
   const videoSection = document.getElementById('video-section');
@@ -67,6 +68,12 @@
   let questionIndex = 0;
   let animFrameId = null;
   let hasUserPressedRecordOnce = false;
+
+  // --- Orb Animation State ---
+  let orbAnimId = null;
+  let orbState = 'idle'; // idle | speaking | recording | processing
+  let orbTime = 0;
+  let orbAudioData = null; // Float32 frequency data for recording visualization
 
   // --- Auth ---
   function showLoginError(msg) {
@@ -129,6 +136,7 @@
     loginUserIdInput.value = '';
     loginPasswordInput.value = '';
     hideLoginError();
+    stopOrbAnimation();
   });
 
   // --- Profile Setup ---
@@ -151,9 +159,10 @@
     appEl.style.display = 'flex';
     userBadge.textContent = `${name} (${loggedInUserId})`;
     connectWebSocket();
+    startOrbAnimation();
   });
 
-  // --- WebSocket (Deepgram 고정) ---
+  // --- WebSocket ---
   function connectWebSocket() {
     if (ws) ws.close();
 
@@ -187,8 +196,7 @@
   }
 
   function setConnectionStatus(connected) {
-    connectionStatus.textContent = connected ? '연결됨' : '연결 안됨';
-    connectionStatus.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
+    connectionStatus.className = `status-dot ${connected ? 'connected' : 'disconnected'}`;
   }
 
   // --- Server Message Handler ---
@@ -196,7 +204,7 @@
     switch (msg.type) {
       case 'session_start':
         sessionId = msg.session_id;
-        sessionIdEl.textContent = sessionId.slice(0, 8) + '...';
+        if (sessionIdEl) sessionIdEl.textContent = sessionId.slice(0, 8) + '...';
         totalQuestions = msg.max_turns || 10;
         questionIndex = 0;
         currentQuestion = msg.question;
@@ -227,7 +235,8 @@
         break;
 
       case 'agent_thinking':
-        micLabel.textContent = '생각 중...';
+        setOrbState('processing');
+        voiceStatusText.textContent = '';
         btnStart.disabled = true;
         break;
 
@@ -272,12 +281,14 @@
         if (msg.listeningUrl) videoListening.src = msg.listeningUrl;
         btnGenerateVideo.disabled = false;
         btnGenerateVideo.classList.remove('btn-video-loading');
-        addSystemMessage('10년 뒤 미래에서 온 당신이 RoF Studio에서 기다리고 있어요. Studio로 입장해 주세요.');
+        voiceStatusText.textContent = 'RoF Studio에서 기다리고 있어요';
         break;
 
       case 'error':
         console.error('[Server]', msg.message);
-        addSystemMessage(`Error: ${msg.message}`);
+        voiceStatusText.textContent = msg.message;
+        voiceStatusText.style.color = 'var(--danger)';
+        setTimeout(() => { voiceStatusText.style.color = ''; }, 3000);
         if (btnGenerateVideo) {
           btnGenerateVideo.disabled = false;
           btnGenerateVideo.classList.remove('btn-video-loading');
@@ -286,17 +297,18 @@
     }
   }
 
-  // --- TTS 스트리밍 재생 (ElevenLabs PCM) → 마이크 활성화 ---
+  // --- TTS ---
   const TTS_SAMPLE_RATE = 24000;
   let ttsAudioCtx = null;
   let ttsAbortCtrl = null;
 
   async function speakThenReady(text) {
     btnStart.disabled = true;
-    micLabel.textContent = '발화 중...';
+    micLabel.textContent = '';
     btnStart.classList.remove('recording');
     btnStart.classList.add('speaking');
     isSpeaking = true;
+    setOrbState('speaking');
 
     if (ttsAbortCtrl) ttsAbortCtrl.abort();
     if (ttsAudioCtx) { ttsAudioCtx.close(); ttsAudioCtx = null; }
@@ -306,8 +318,23 @@
       sampleRate: TTS_SAMPLE_RATE,
     });
 
+    // Create analyser for orb visualization during TTS
+    const ttsAnalyser = ttsAudioCtx.createAnalyser();
+    ttsAnalyser.fftSize = 256;
+    ttsAnalyser.smoothingTimeConstant = 0.7;
+
     const gainNode = ttsAudioCtx.createGain();
-    gainNode.connect(ttsAudioCtx.destination);
+    gainNode.connect(ttsAnalyser);
+    ttsAnalyser.connect(ttsAudioCtx.destination);
+
+    // Feed TTS analyser data to orb
+    orbAudioData = new Float32Array(ttsAnalyser.frequencyBinCount);
+    const updateTtsData = () => {
+      if (!isSpeaking) return;
+      ttsAnalyser.getFloatFrequencyData(orbAudioData);
+      requestAnimationFrame(updateTtsData);
+    };
+    updateTtsData();
 
     try {
       const res = await fetch('/api/tts', {
@@ -366,12 +393,14 @@
       if (lastSource) {
         lastSource.onended = () => {
           isSpeaking = false;
+          orbAudioData = null;
           btnStart.classList.remove('speaking');
           if (ttsAudioCtx) { ttsAudioCtx.close(); ttsAudioCtx = null; }
           setMicReady();
         };
       } else {
         isSpeaking = false;
+        orbAudioData = null;
         btnStart.classList.remove('speaking');
         setMicReady();
       }
@@ -380,6 +409,7 @@
         console.error('[TTS] 스트리밍 재생 실패:', err);
       }
       isSpeaking = false;
+      orbAudioData = null;
       btnStart.classList.remove('speaking');
       if (ttsAudioCtx) { ttsAudioCtx.close(); ttsAudioCtx = null; }
       setMicReady();
@@ -388,14 +418,18 @@
 
   function setMicReady() {
     btnStart.disabled = false;
-    // micLabel.textContent = 'Press and hold to speak';
+    micLabel.textContent = '';
+    setOrbState('idle');
+    voiceStatusText.textContent = '';
+    voiceSubtitle.textContent = '';
+
     if (!hasUserPressedRecordOnce && recordGuideBubble) {
       recordGuideBubble.classList.add('visible');
       recordGuideBubble.setAttribute('aria-hidden', 'false');
     }
   }
 
-  // --- Push-to-Talk: mousedown/touchstart → 녹음, mouseup/touchend → 종료 ---
+  // --- Push-to-Talk ---
   function dismissRecordGuide() {
     if (hasUserPressedRecordOnce) return;
     hasUserPressedRecordOnce = true;
@@ -430,7 +464,6 @@
     if (isRecording) return;
 
     try {
-      // Deepgram 세션을 먼저 생성 요청 (오디오보다 먼저 도착해야 함)
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'start_recording' }));
         console.log('[CLIENT] start_recording sent');
@@ -452,6 +485,7 @@
 
       analyserNode = audioContext.createAnalyser();
       analyserNode.fftSize = 256;
+      analyserNode.smoothingTimeConstant = 0.7;
       source.connect(analyserNode);
 
       await audioContext.audioWorklet.addModule('pcm-processor.js');
@@ -465,14 +499,17 @@
 
       isRecording = true;
       btnStart.classList.add('recording');
-      micLabel.textContent = 'Recording...';
+      micLabel.textContent = '';
       liveTranscript.textContent = '';
       liveTranscriptSection.style.display = 'block';
+      setOrbState('recording');
 
+      // Feed mic analyser data to orb
+      orbAudioData = new Float32Array(analyserNode.frequencyBinCount);
       drawVisualizer();
     } catch (err) {
       console.error('[Mic] Access denied:', err);
-      addSystemMessage('Microphone access is required');
+      voiceStatusText.textContent = '마이크 접근 권한이 필요합니다';
     }
   }
 
@@ -482,8 +519,9 @@
     isRecording = false;
 
     btnStart.classList.remove('recording');
-    micLabel.textContent = 'Processing...';
+    micLabel.textContent = '';
     btnStart.disabled = true;
+    setOrbState('processing');
 
     if (animFrameId) {
       cancelAnimationFrame(animFrameId);
@@ -505,16 +543,17 @@
       audioContext = null;
     }
 
+    orbAudioData = null;
+
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'stop_recording' }));
       console.log('[CLIENT] stop_recording sent');
     }
   }
 
-  // --- Finish (전사 완료 → 다음 질문) ---
+  // --- Finish ---
   function finishRecording(text, metadata) {
     addChatBubble('user', text, metadata);
-    updateMetrics(metadata);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
@@ -527,42 +566,17 @@
     }
   }
 
-  // --- Audio Visualizer ---
+  // --- Audio Visualizer (hidden canvas, data used by orb) ---
   function drawVisualizer() {
     if (!analyserNode) return;
 
-    const ctx = visualizerCanvas.getContext('2d');
-    const freqLength = analyserNode.frequencyBinCount;
-    const freqData = new Uint8Array(freqLength);
-    const width = visualizerCanvas.width;
-    const height = visualizerCanvas.height;
-
     function draw() {
-      if (!isRecording) {
-        ctx.clearRect(0, 0, width, height);
-        return;
-      }
+      if (!isRecording) return;
       animFrameId = requestAnimationFrame(draw);
-
-      analyserNode.getByteFrequencyData(freqData);
-
-      ctx.fillStyle = 'rgba(15, 17, 23, 0.85)';
-      ctx.fillRect(0, 0, width, height);
-
-      const barWidth = (width / freqLength) * 2.5;
-      let x = 0;
-
-      for (let i = 0; i < freqLength; i++) {
-        const barHeight = (freqData[i] / 255) * height;
-        const alpha = 0.4 + (freqData[i] / 255) * 0.6;
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = '#13d8aa';
-        ctx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
-        x += barWidth;
+      if (analyserNode && orbAudioData) {
+        analyserNode.getFloatFrequencyData(orbAudioData);
       }
-      ctx.globalAlpha = 1;
     }
-
     draw();
   }
 
@@ -570,69 +584,27 @@
   function addChatBubble(role, text, metadata = null) {
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble ${role}`;
-
-    const label = document.createElement('div');
-    label.className = 'bubble-label';
-    label.textContent = role === 'agent' ? 'Agent' : 'You';
-    bubble.appendChild(label);
-
     const content = document.createElement('div');
     content.textContent = text;
     bubble.appendChild(content);
-
     chatMessages.appendChild(bubble);
-    conversation.scrollTop = conversation.scrollHeight;
-  }
-
-  function addSystemMessage(text) {
-    const div = document.createElement('div');
-    div.className = 'chat-bubble agent';
-    div.style.background = 'rgba(231, 76, 60, 0.15)';
-    div.style.borderColor = 'var(--danger)';
-
-    const content = document.createElement('div');
-    content.textContent = text;
-    div.appendChild(content);
-
-    chatMessages.appendChild(div);
-    conversation.scrollTop = conversation.scrollHeight;
   }
 
   function updateProgress(current, total) {
     const pct = Math.min((current / total) * 100, 100);
-    progressFill.style.width = `${pct}%`;
-    progressText.textContent = `Conversation ${current} / ${total}`;
-  }
-
-  function updateMetrics(data) {
-    if (!metricsPanel) return;
-    metricsPanel.style.display = 'block';
-    if (metricEngine) {
-      metricEngine.textContent = 'Deepgram';
-      metricEngine.style.color = 'var(--accent-dg)';
-    }
-    if (metricLatency) metricLatency.textContent = data.latency_ms ? `${data.latency_ms} ms` : '- ms';
-    if (metricConfidence) metricConfidence.textContent = data.confidence
-      ? `${(data.confidence * 100).toFixed(1)}%` : 'N/A';
-    if (metricDuration) metricDuration.textContent = data.audio_duration_sec
-      ? `${data.audio_duration_sec.toFixed(1)} sec` : '- sec';
+    if (progressFill) progressFill.style.width = `${pct}%`;
+    progressText.textContent = `${current} / ${total}`;
   }
 
   // --- Session Complete ---
   function showSessionComplete(sessionData) {
     btnStart.disabled = true;
-    micLabel.textContent = 'Completed';
+    micLabel.textContent = '';
     btnEndSession.style.display = 'none';
+    setOrbState('idle');
+    voiceStatusText.textContent = '대화가 종료되었습니다';
+    voiceSubtitle.textContent = '';
 
-    const banner = document.createElement('div');
-    banner.className = 'session-complete-banner';
-    banner.innerHTML = `
-      <h3>대화가 종료되었습니다</h3>
-    `;
-    chatMessages.appendChild(banner);
-    conversation.scrollTop = conversation.scrollHeight;
-
-    // 비디오 생성 UI 표시
     if (videoSection) {
       videoSection.style.display = 'block';
       videoResult.style.display = 'none';
@@ -640,7 +612,7 @@
     }
   }
 
-  // --- End / New Session ---
+  // --- End Session ---
   btnEndSession.addEventListener('click', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       if (isRecording) stopRecording();
@@ -656,7 +628,7 @@
       if (videoImageLabelText) {
         videoImageLabelText.textContent = hasFile
           ? (videoImageInput.files[0]?.name || 'Image selected')
-          : 'Select profile image';
+          : '프로필 이미지 선택';
       }
     });
   }
@@ -681,6 +653,255 @@
     });
   }
 
+  // ═══════════════════════════════════════
+  // ORB ANIMATION
+  // ═══════════════════════════════════════
+
+  function setOrbState(state) {
+    orbState = state;
+    orbGlow.className = 'orb-glow' + (state !== 'idle' ? ` ${state}` : '');
+  }
+
+  function startOrbAnimation() {
+    if (orbAnimId) return;
+    const ctx = orbCanvas.getContext('2d');
+    const w = orbCanvas.width;
+    const h = orbCanvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+
+    function animate() {
+      orbAnimId = requestAnimationFrame(animate);
+      orbTime += 0.016; // ~60fps
+      ctx.clearRect(0, 0, w, h);
+
+      // Get audio energy
+      let energy = 0;
+      if (orbAudioData) {
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < orbAudioData.length; i++) {
+          // Float frequency data is in dB (negative values, -100 to 0)
+          const db = orbAudioData[i];
+          const normalized = Math.max(0, (db + 100) / 100);
+          sum += normalized;
+          count++;
+        }
+        energy = count > 0 ? sum / count : 0;
+        energy = Math.min(energy, 1);
+      }
+
+      switch (orbState) {
+        case 'idle':
+          drawIdleOrb(ctx, cx, cy, orbTime);
+          break;
+        case 'speaking':
+          drawSpeakingOrb(ctx, cx, cy, orbTime, energy);
+          break;
+        case 'recording':
+          drawRecordingOrb(ctx, cx, cy, orbTime, energy);
+          break;
+        case 'processing':
+          drawProcessingOrb(ctx, cx, cy, orbTime);
+          break;
+      }
+    }
+    animate();
+  }
+
+  function stopOrbAnimation() {
+    if (orbAnimId) {
+      cancelAnimationFrame(orbAnimId);
+      orbAnimId = null;
+    }
+  }
+
+  // --- Idle: gentle breathing orb ---
+  function drawIdleOrb(ctx, cx, cy, t) {
+    const baseR = 60;
+    const breathe = Math.sin(t * 0.8) * 4;
+    const r = baseR + breathe;
+
+    // Outer glow
+    const grad = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.8);
+    grad.addColorStop(0, 'rgba(108, 92, 231, 0.08)');
+    grad.addColorStop(1, 'rgba(108, 92, 231, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main orb with subtle distortion
+    drawBlobOrb(ctx, cx, cy, r, t, 0.3, [
+      { r: 108, g: 92, b: 231, a: 0.6 },
+      { r: 90, g: 80, b: 200, a: 0.3 },
+    ]);
+  }
+
+  // --- Speaking: dynamic teal orb responding to TTS audio ---
+  function drawSpeakingOrb(ctx, cx, cy, t, energy) {
+    const baseR = 65;
+    const audioBoost = energy * 30;
+    const r = baseR + audioBoost + Math.sin(t * 1.2) * 3;
+
+    // Glow
+    const grad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2.2);
+    grad.addColorStop(0, `rgba(19, 216, 170, ${0.12 + energy * 0.15})`);
+    grad.addColorStop(0.5, `rgba(19, 216, 170, ${0.04 + energy * 0.06})`);
+    grad.addColorStop(1, 'rgba(19, 216, 170, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ripple rings
+    const rippleCount = 3;
+    for (let i = 0; i < rippleCount; i++) {
+      const phase = (t * 1.5 + i * 2.1) % 6;
+      const rippleR = r + phase * 15;
+      const alpha = Math.max(0, 0.15 - phase * 0.025) * (0.5 + energy);
+      ctx.strokeStyle = `rgba(19, 216, 170, ${alpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rippleR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Main orb
+    drawBlobOrb(ctx, cx, cy, r, t * 1.5, 0.5 + energy * 0.8, [
+      { r: 19, g: 216, b: 170, a: 0.7 },
+      { r: 13, g: 180, b: 150, a: 0.4 },
+    ]);
+  }
+
+  // --- Recording: purple responsive orb ---
+  function drawRecordingOrb(ctx, cx, cy, t, energy) {
+    const baseR = 60;
+    const audioBoost = energy * 35;
+    const r = baseR + audioBoost;
+
+    // Glow
+    const grad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2);
+    grad.addColorStop(0, `rgba(108, 92, 231, ${0.15 + energy * 0.2})`);
+    grad.addColorStop(0.6, `rgba(108, 92, 231, ${0.05 + energy * 0.08})`);
+    grad.addColorStop(1, 'rgba(108, 92, 231, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Audio wave ring
+    if (energy > 0.05 && orbAudioData) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(108, 92, 231, ${0.3 + energy * 0.3})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const points = 64;
+      for (let i = 0; i <= points; i++) {
+        const angle = (i / points) * Math.PI * 2;
+        const freqIdx = Math.floor((i / points) * orbAudioData.length);
+        const db = orbAudioData[freqIdx] || -100;
+        const amp = Math.max(0, (db + 100) / 100) * 20;
+        const pr = r + 15 + amp;
+        const x = cx + Math.cos(angle) * pr;
+        const y = cy + Math.sin(angle) * pr;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Main orb
+    drawBlobOrb(ctx, cx, cy, r, t * 2, 0.6 + energy * 1.0, [
+      { r: 108, g: 92, b: 231, a: 0.8 },
+      { r: 140, g: 100, b: 255, a: 0.4 },
+    ]);
+  }
+
+  // --- Processing: spinning orb ---
+  function drawProcessingOrb(ctx, cx, cy, t) {
+    const baseR = 55;
+    const r = baseR + Math.sin(t * 2) * 3;
+
+    // Spinning arc
+    ctx.save();
+    const arcStart = t * 3;
+    const arcLen = Math.PI * 1.2;
+    ctx.strokeStyle = 'rgba(108, 92, 231, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 20, arcStart, arcStart + arcLen);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(19, 216, 170, 0.3)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 28, -arcStart * 0.7, -arcStart * 0.7 + arcLen * 0.8);
+    ctx.stroke();
+    ctx.restore();
+
+    // Glow
+    const grad = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.6);
+    grad.addColorStop(0, 'rgba(108, 92, 231, 0.1)');
+    grad.addColorStop(1, 'rgba(108, 92, 231, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main orb (dimmer)
+    drawBlobOrb(ctx, cx, cy, r, t, 0.4, [
+      { r: 108, g: 92, b: 231, a: 0.4 },
+      { r: 80, g: 70, b: 180, a: 0.2 },
+    ]);
+  }
+
+  // --- Blob orb drawing helper ---
+  function drawBlobOrb(ctx, cx, cy, radius, t, distortion, colors) {
+    const points = 120;
+    ctx.save();
+
+    // Create blob path
+    ctx.beginPath();
+    for (let i = 0; i <= points; i++) {
+      const angle = (i / points) * Math.PI * 2;
+      const n1 = Math.sin(angle * 3 + t * 1.2) * distortion * 6;
+      const n2 = Math.sin(angle * 5 - t * 0.8) * distortion * 3;
+      const n3 = Math.cos(angle * 2 + t * 1.5) * distortion * 4;
+      const r = radius + n1 + n2 + n3;
+      const x = cx + Math.cos(angle) * r;
+      const y = cy + Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+
+    // Fill with gradient
+    const grad = ctx.createRadialGradient(
+      cx - radius * 0.3, cy - radius * 0.3, radius * 0.1,
+      cx, cy, radius * 1.2
+    );
+    const c1 = colors[0];
+    const c2 = colors[1];
+    grad.addColorStop(0, `rgba(${c1.r}, ${c1.g}, ${c1.b}, ${c1.a})`);
+    grad.addColorStop(0.6, `rgba(${c2.r}, ${c2.g}, ${c2.b}, ${c2.a})`);
+    grad.addColorStop(1, `rgba(${c2.r}, ${c2.g}, ${c2.b}, 0)`);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Subtle inner highlight
+    const highlight = ctx.createRadialGradient(
+      cx - radius * 0.2, cy - radius * 0.3, 0,
+      cx, cy, radius * 0.8
+    );
+    highlight.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+    highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = highlight;
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   // --- Init ---
-  // 로그인 후 connectWebSocket() 호출됨
 })();

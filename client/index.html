@@ -32,7 +32,7 @@
     </div>
   </div>
 
-  <!-- 프로필 설정 화면 (로그인 후, 대화 전) -->
+  <!-- 프로필 설정 화면 -->
   <div id="profile-screen" class="login-screen" style="display:none;">
     <div class="login-card">
       <h1 class="login-title">프로필 설정</h1>
@@ -68,87 +68,75 @@
     </div>
   </div>
 
-  <div id="app" style="display:none;">
+  <!-- 메인 음성 대화 화면 -->
+  <div id="app" class="voice-app" style="display:none;">
 
-    <!-- 상태 바 -->
-    <section class="controls">
-      <div class="status-bar">
-        <span id="connection-status" class="status-indicator disconnected">연결 안됨</span>
-        <span id="user-badge" class="user-badge"></span>
-        <span id="session-id" class="session-label"></span>
-        <button id="btn-logout" class="btn-logout">로그아웃</button>
+    <!-- 최상단 미니 상태바 -->
+    <header class="voice-header">
+      <span id="connection-status" class="status-dot disconnected"></span>
+      <span id="progress-text" class="voice-progress-text">0 / 0</span>
+      <button id="btn-logout" class="btn-voice-close" title="로그아웃">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- 숨겨진 요소 (기존 로직 호환) -->
+    <span id="user-badge" style="display:none;"></span>
+    <span id="session-id" style="display:none;"></span>
+    <div id="progress-fill" style="display:none;"></div>
+
+    <!-- 중앙 오브 영역 -->
+    <main class="voice-main">
+      <div class="orb-container" id="orb-container">
+        <canvas id="orb-canvas" width="280" height="280"></canvas>
+        <div class="orb-glow" id="orb-glow"></div>
       </div>
+      <p class="voice-status-text" id="voice-status-text">연결 중...</p>
+      <p class="voice-subtitle" id="voice-subtitle"></p>
+    </main>
+
+    <!-- 실시간 전사 (하단 오버레이) -->
+    <section class="voice-transcript" id="live-transcript-section" style="display:none;">
+      <p id="live-transcript" class="voice-transcript-text"></p>
     </section>
 
-    <!-- 진행률 -->
-    <section class="progress-section">
-      <div class="progress-bar">
-        <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
-      </div>
-      <span id="progress-text" class="progress-text">대화 0 / 0</span>
-    </section>
-
-    <!-- 대화 영역 -->
-    <section class="conversation" id="conversation">
-      <div id="chat-messages" class="chat-messages">
-        <!-- 메시지가 여기에 추가됨 -->
-      </div>
-    </section>
-
-    <!-- 실시간 전사 표시 -->
-    <section class="live-transcript" id="live-transcript-section" style="display:none;">
-      <p id="live-transcript" class="transcript-text"></p>
-    </section>
-
-    <!-- 마이크 컨트롤 -->
-    <section class="mic-controls">
+    <!-- 하단 컨트롤 -->
+    <footer class="voice-footer">
       <div id="record-guide-bubble" class="record-guide-bubble" aria-hidden="true">
         버튼을 꾹 누른 상태로 답변해 주세요.
       </div>
-      <button id="btn-start" class="mic-btn push-to-talk" disabled>
+      <button id="btn-start" class="voice-mic-btn push-to-talk" disabled>
         <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
           <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
           <line x1="12" y1="19" x2="12" y2="23"/>
           <line x1="8" y1="23" x2="16" y2="23"/>
         </svg>
-        <span id="mic-label">대기 중</span>
       </button>
-      <div id="audio-visualizer" class="visualizer">
-        <canvas id="visualizer-canvas" width="300" height="40"></canvas>
-      </div>
-    </section>
+      <span id="mic-label" class="voice-mic-label">대기 중</span>
+      <button id="btn-end-session" class="btn-end-voice" disabled>대화 종료</button>
+    </footer>
 
-    <!-- <section class="metrics-panel" id="metrics-panel" style="display:none;">
-      <h3 class="metrics-title">STT 메트릭</h3>
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <span class="metric-label">엔진</span>
-          <span id="metric-engine" class="metric-value">-</span>
-        </div>
-        <div class="metric-card">
-          <span class="metric-label">지연시간</span>
-          <span id="metric-latency" class="metric-value">- ms</span>
-        </div>
-        <div class="metric-card">
-          <span class="metric-label">신뢰도</span>
-          <span id="metric-confidence" class="metric-value">-</span>
-        </div>
-        <div class="metric-card">
-          <span class="metric-label">오디오 길이</span>
-          <span id="metric-duration" class="metric-value">- sec</span>
-        </div>
-      </div>
-    </section> -->
+    <!-- 채팅 메시지 (숨겨진 데이터 저장용) -->
+    <div id="conversation" style="display:none;">
+      <div id="chat-messages" class="chat-messages"></div>
+    </div>
+
+    <!-- 오디오 비주얼라이저 (숨김, 오브에서 사용) -->
+    <canvas id="visualizer-canvas" width="300" height="40" style="display:none;"></canvas>
 
     <!-- 비디오 생성 영역 -->
-    <section id="video-section" class="video-section" style="display:none;">
-      <div id="video-controls" class="video-controls">
-        <label class="file-upload-label">
+    <section id="video-section" class="video-section-voice" style="display:none;">
+      <div id="video-controls" class="video-controls-voice">
+        <label class="file-upload-label-voice">
           <input type="file" id="video-image-input" accept="image/*" />
           <span id="video-image-label-text">프로필 이미지 선택</span>
         </label>
-        <button id="btn-generate-video" class="btn-primary btn-icon" disabled><span class="material-symbols-outlined">videocam</span></button>
+        <button id="btn-generate-video" class="btn-primary btn-icon" disabled>
+          <span class="material-symbols-outlined">videocam</span>
+        </button>
       </div>
       <div id="video-status" class="video-status" style="display:none;">
         <div class="video-status-text"></div>
@@ -168,10 +156,6 @@
           </div>
         </div>
       </div>
-    </section>
-
-    <section class="session-actions">
-      <button id="btn-end-session" class="btn-secondary" disabled>대화 종료 및 저장</button>
     </section>
   </div>
 

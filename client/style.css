@@ -1,10 +1,10 @@
 :root {
-  --bg: #0f1117;
+  --bg: #0a0a0f;
   --surface: #1a1d27;
   --surface-2: #242836;
   --border: #2e3348;
   --text: #e4e6f0;
-  --text-dim: #8b8fa7;
+  --text-dim: #6b6f85;
   --primary: #6c5ce7;
   --primary-hover: #7d6ff0;
   --accent-dg: #13d8aa;
@@ -29,331 +29,199 @@ body {
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-}
-
-#app {
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 24px 20px 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* 헤더 */
-.header {
-  text-align: center;
-  padding: 16px 0;
-}
-
-.header__title {
-  font-size: 1.6rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--primary), var(--accent-dg));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.header__subtitle {
-  margin-top: 6px;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-}
-
-/* 엔진 토글 */
-.controls {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.engine-toggle {
-  display: flex;
-  gap: 10px;
-}
-
-.toggle-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text-dim);
-  font-family: var(--font);
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.toggle-btn:hover {
-  border-color: var(--text-dim);
-}
-
-.toggle-btn .toggle-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-dim);
-  transition: background 0.25s ease;
-}
-
-.toggle-btn .toggle-tag {
-  font-size: 0.7rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--surface-2);
-  color: var(--text-dim);
-}
-
-.toggle-btn.active[data-engine="deepgram"] {
-  border-color: var(--accent-dg);
-  color: var(--accent-dg);
-}
-
-.toggle-btn.active[data-engine="deepgram"] .toggle-dot {
-  background: var(--accent-dg);
-  box-shadow: 0 0 8px var(--accent-dg);
-}
-
-.toggle-btn.active[data-engine="whisper"] {
-  border-color: var(--accent-wh);
-  color: var(--accent-wh);
-}
-
-.toggle-btn.active[data-engine="whisper"] .toggle-dot {
-  background: var(--accent-wh);
-  box-shadow: 0 0 8px var(--accent-wh);
-}
-
-/* 엔진 배지 */
-.engine-badge {
-  padding: 4px 12px;
-  border-radius: 20px;
-  background: rgba(19, 216, 170, 0.15);
-  color: var(--accent-dg);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-/* 상태 바 */
-.status-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.8rem;
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-weight: 500;
-}
-
-.status-indicator::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.status-indicator.connected {
-  background: rgba(46, 204, 113, 0.15);
-  color: var(--success);
-}
-
-.status-indicator.connected::before {
-  background: var(--success);
-  box-shadow: 0 0 6px var(--success);
-}
-
-.status-indicator.disconnected {
-  background: rgba(231, 76, 60, 0.15);
-  color: var(--danger);
-}
-
-.status-indicator.disconnected::before {
-  background: var(--danger);
-}
-
-.session-label {
-  color: var(--text-dim);
-  font-size: 0.75rem;
-  font-family: monospace;
-}
-
-/* 진행률 */
-.progress-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.progress-bar {
-  flex: 1;
-  height: 6px;
-  background: var(--surface-2);
-  border-radius: 3px;
   overflow: hidden;
 }
 
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--primary), var(--accent-dg));
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
+/* ═══════════════════════════════════════
+   음성 대화 메인 화면
+   ═══════════════════════════════════════ */
 
-.progress-text {
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-/* 대화 영역 */
-.conversation {
-  background: var(--surface);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  min-height: 300px;
-  max-height: 450px;
-  overflow-y: auto;
-}
-
-.chat-messages {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.chat-bubble {
-  max-width: 85%;
-  padding: 12px 16px;
-  border-radius: var(--radius);
-  font-size: 0.92rem;
-  line-height: 1.6;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.chat-bubble.agent {
-  align-self: flex-start;
-  background: var(--surface-2);
-  border-bottom-left-radius: 4px;
-}
-
-.chat-bubble.agent .bubble-label {
-  color: var(--primary);
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.chat-bubble.user {
-  align-self: flex-end;
-  background: linear-gradient(135deg, var(--primary), #5a4bd1);
-  border-bottom-right-radius: 4px;
-}
-
-.chat-bubble.user .bubble-label {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.chat-bubble .bubble-meta {
-  margin-top: 6px;
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  display: flex;
-  gap: 10px;
-}
-
-.chat-bubble.user .bubble-meta {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* 실시간 전사 — 화면 하단 고정 오버레이 */
-.live-transcript {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  background: var(--surface);
-  border-top: 2px solid var(--primary);
-  border-radius: var(--radius) var(--radius) 0 0;
-  padding: 14px 20px;
-  margin: 0 auto;
-  max-width: 680px;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
-  animation: pulse-border 2s infinite, slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes pulse-border {
-  0%, 100% { border-color: var(--primary); }
-  50% { border-color: var(--accent-dg); }
-}
-
-.transcript-label {
-  font-size: 0.75rem;
-  color: var(--primary);
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.transcript-text {
-  font-size: 0.95rem;
-  line-height: 1.5;
-  min-height: 24px;
-  color: var(--text);
-}
-
-/* 마이크 컨트롤 */
-.mic-controls {
+.voice-app {
+  width: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #12132a 0%, var(--bg) 70%);
+}
+
+/* ── 상단 헤더 ── */
+.voice-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  z-index: 10;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.connected {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+.status-dot.disconnected {
+  background: var(--danger);
+}
+
+.voice-progress-text {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.btn-voice-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-voice-close:hover {
+  color: var(--danger);
+  background: rgba(231, 76, 60, 0.1);
+}
+
+/* ── 중앙 오브 ── */
+.voice-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  z-index: 1;
+  padding-bottom: 40px;
+}
+
+.orb-container {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#orb-canvas {
+  position: relative;
+  z-index: 2;
+}
+
+.orb-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(108, 92, 231, 0.15) 0%, transparent 70%);
+  filter: blur(30px);
+  z-index: 1;
+  transition: all 0.6s ease;
+}
+
+.orb-glow.speaking {
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(19, 216, 170, 0.25) 0%, transparent 70%);
+}
+
+.orb-glow.recording {
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(108, 92, 231, 0.3) 0%, transparent 70%);
+}
+
+.voice-status-text {
+  font-size: 1rem;
+  color: var(--text);
+  font-weight: 400;
+  text-align: center;
+  max-width: 300px;
+  line-height: 1.5;
+  opacity: 0.9;
+  min-height: 24px;
+}
+
+.voice-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 260px;
+  min-height: 20px;
+}
+
+/* ── 실시간 전사 ── */
+.voice-transcript {
+  position: absolute;
+  bottom: 180px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: rgba(26, 29, 39, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  border-radius: 20px;
+  padding: 10px 20px;
+  max-width: 80%;
+  animation: fadeInUp 0.3s ease;
+}
+
+.voice-transcript-text {
+  font-size: 0.9rem;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.4;
+  min-height: 20px;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── 하단 컨트롤 ── */
+.voice-footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px 40px;
+  z-index: 10;
   position: relative;
 }
 
-/* 말풍선 가이드 (첫 진입 시 녹음 버튼 위에 표시) */
 .record-guide-bubble {
   display: none;
   position: absolute;
-  bottom: calc(80px + 16px + 20px);
+  bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-  padding: 12px 18px;
+  padding: 10px 16px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   color: var(--text);
   text-align: center;
   white-space: nowrap;
@@ -364,259 +232,138 @@ body {
 .record-guide-bubble::after {
   content: '';
   position: absolute;
-  bottom: -8px;
+  bottom: -7px;
   left: 50%;
   transform: translateX(-50%);
-  border: 8px solid transparent;
+  border: 7px solid transparent;
   border-top-color: var(--surface-2);
   border-bottom: none;
-}
-
-.record-guide-bubble::before {
-  content: '';
-  position: absolute;
-  bottom: -9px;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 9px solid transparent;
-  border-top-color: var(--border);
-  border-bottom: none;
-  z-index: -1;
 }
 
 .record-guide-bubble.visible {
   display: block;
 }
 
-.mic-btn {
-  width: 80px;
-  height: 80px;
+/* 마이크 버튼 */
+.voice-mic-btn {
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  border: 3px solid var(--border);
-  background: var(--surface);
-  color: var(--text-dim);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
   cursor: pointer;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   transition: all 0.3s ease;
-  font-family: var(--font);
-  font-size: 0.65rem;
   position: relative;
   z-index: 1;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.mic-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.mic-btn.push-to-talk:not(:disabled) {
-  cursor: grab;
-}
-
-.mic-btn.push-to-talk:not(:disabled):hover {
-  border-color: var(--accent-dg);
-  color: var(--accent-dg);
-  transform: scale(1.05);
-}
-
-.mic-btn.push-to-talk:not(:disabled):active,
-.mic-btn.recording {
-  border-color: var(--danger);
-  color: var(--danger);
-  transform: scale(0.95);
-  cursor: grabbing;
-  animation: recording-pulse 1.5s infinite;
-}
-
-@keyframes recording-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
-  50% { box-shadow: 0 0 0 12px rgba(231, 76, 60, 0); }
-}
-
-.mic-btn.speaking {
-  border-color: var(--accent-dg);
-  color: var(--accent-dg);
-}
-
-.mic-icon {
+.voice-mic-btn .mic-icon {
   width: 28px;
   height: 28px;
 }
 
-#mic-label {
-  font-weight: 500;
-}
-
-.visualizer {
-  width: 300px;
-  height: 40px;
-}
-
-#visualizer-canvas {
-  border-radius: var(--radius-sm);
-}
-
-/* 메트릭 패널 */
-.metrics-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-}
-
-.metrics-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-dim);
-  margin-bottom: 12px;
-}
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-
-.metric-card {
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  text-align: center;
-}
-
-.metric-label {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  margin-bottom: 4px;
-}
-
-.metric-value {
-  display: block;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-/* 세션 액션 */
-.session-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.btn-primary, .btn-secondary {
-  padding: 10px 24px;
-  border-radius: var(--radius-sm);
-  border: none;
-  font-family: var(--font);
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-primary {
-  background: var(--primary);
-  color: white;
-}
-
-.btn-primary:hover {
-  background: var(--primary-hover);
-}
-
-.btn-secondary {
-  background: var(--surface-2);
-  color: var(--text-dim);
-  border: 1px solid var(--border);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--surface);
-  color: var(--text);
-}
-
-.btn-secondary:disabled, .btn-primary:disabled {
-  opacity: 0.4;
+.voice-mic-btn:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
-/* 비디오 생성 버튼 아이콘 (Google Material Symbols) */
-.btn-icon .material-symbols-outlined {
-  font-size: 20px;
-  display: inline-block;
-  vertical-align: middle;
+.voice-mic-btn.push-to-talk:not(:disabled) {
+  cursor: grab;
 }
 
-/* 처리 중일 때 아이콘만 dimmed */
-.btn-video-loading .material-symbols-outlined {
-  opacity: 0.4;
+.voice-mic-btn.push-to-talk:not(:disabled):hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
 }
 
-/* 스크롤바 */
-.conversation::-webkit-scrollbar {
-  width: 6px;
+.voice-mic-btn.push-to-talk:not(:disabled):active,
+.voice-mic-btn.recording {
+  border-color: var(--primary);
+  background: rgba(108, 92, 231, 0.2);
+  transform: scale(0.95);
+  cursor: grabbing;
+  animation: mic-pulse 1.5s infinite;
 }
 
-.conversation::-webkit-scrollbar-track {
-  background: transparent;
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(108, 92, 231, 0.4); }
+  50% { box-shadow: 0 0 0 16px rgba(108, 92, 231, 0); }
 }
 
-.conversation::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+.voice-mic-btn.speaking {
+  border-color: var(--accent-dg);
+  background: rgba(19, 216, 170, 0.1);
 }
 
-/* 완료 배너 */
-.session-complete-banner {
-  background: linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(108, 92, 231, 0.15));
-  border: 1px solid var(--success);
-  border-radius: var(--radius);
-  padding: 20px;
-  text-align: center;
-}
-
-.session-complete-banner h3 {
-  color: var(--success);
-  margin-bottom: 8px;
-}
-
-.session-complete-banner p {
+.voice-mic-label {
+  font-size: 0.75rem;
   color: var(--text-dim);
-  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.3px;
 }
 
-/* 비디오 생성 섹션 */
-.video-section {
-  background: var(--surface);
+.btn-end-voice {
+  position: absolute;
+  right: 24px;
+  bottom: 54px;
+  padding: 6px 14px;
+  background: transparent;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 20px;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-end-voice:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-end-voice:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════
+   비디오 섹션 (세션 완료 후)
+   ═══════════════════════════════════════ */
+
+.video-section-voice {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
   padding: 20px;
-  margin-top: 16px;
+  z-index: 30;
+  max-height: 60vh;
+  overflow-y: auto;
+  animation: slideUp 0.4s ease;
 }
 
-.video-title {
-  color: var(--text);
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 14px;
-}
-
-.video-controls {
+.video-controls-voice {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
 }
 
-.file-upload-label {
+.file-upload-label-voice {
   display: inline-block;
   padding: 8px 16px;
-  background: var(--surface);
+  background: var(--surface-2);
   border: 1px dashed var(--border);
   border-radius: var(--radius);
   color: var(--text-dim);
@@ -625,22 +372,13 @@ body {
   transition: border-color 0.2s;
 }
 
-.file-upload-label:hover {
+.file-upload-label-voice:hover {
   border-color: var(--primary);
   color: var(--primary);
 }
 
-.file-upload-label input[type="file"] {
+.file-upload-label-voice input[type="file"] {
   display: none;
-}
-
-.gender-select {
-  padding: 8px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-size: 0.85rem;
 }
 
 .video-status {
@@ -658,6 +396,13 @@ body {
   background: var(--border);
   border-radius: 2px;
   overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--accent-dg));
+  border-radius: 2px;
+  transition: width 0.5s ease;
 }
 
 .video-result {
@@ -686,7 +431,10 @@ body {
   border: 1px solid var(--border);
 }
 
-/* ── 로그인 화면 ── */
+/* ═══════════════════════════════════════
+   로그인 / 프로필 화면
+   ═══════════════════════════════════════ */
+
 .login-screen {
   min-height: 100vh;
   display: flex;
@@ -779,7 +527,6 @@ body {
   text-align: center;
 }
 
-/* 성별 라디오 버튼 */
 .gender-radio-group {
   display: flex;
   gap: 12px;
@@ -814,59 +561,104 @@ body {
   font-weight: 600;
 }
 
-/* date/time 입력 */
 .input-group input[type="date"],
 .input-group input[type="time"] {
   color-scheme: dark;
 }
 
-/* 사용자 배지 */
-.user-badge {
-  padding: 4px 10px;
-  border-radius: 20px;
-  background: rgba(108, 92, 231, 0.15);
-  color: var(--primary);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.btn-logout {
-  margin-left: auto;
-  padding: 4px 12px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  color: var(--text-dim);
+/* ── 공통 버튼 ── */
+.btn-primary, .btn-secondary {
+  padding: 10px 24px;
+  border-radius: var(--radius-sm);
+  border: none;
   font-family: var(--font);
-  font-size: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
-.btn-logout:hover {
-  border-color: var(--danger);
-  color: var(--danger);
+.btn-primary {
+  background: var(--primary);
+  color: white;
 }
 
-/* 반응형 */
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.btn-secondary:disabled, .btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-icon .material-symbols-outlined {
+  font-size: 20px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.btn-video-loading .material-symbols-outlined {
+  opacity: 0.4;
+}
+
+/* ── 공통 키프레임 ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ── 반응형 ── */
 @media (max-width: 480px) {
-  #app {
-    padding: 16px 12px;
+  .voice-header {
+    padding: 12px 16px;
   }
 
-  .metrics-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .orb-container {
+    width: 220px;
+    height: 220px;
   }
 
-  .header__title {
-    font-size: 1.3rem;
+  #orb-canvas {
+    width: 220px;
+    height: 220px;
+  }
+
+  .voice-footer {
+    padding: 0 16px 32px;
+  }
+
+  .voice-mic-btn {
+    width: 64px;
+    height: 64px;
+  }
+
+  .btn-end-voice {
+    right: 16px;
+    bottom: 46px;
   }
 
   .video-pair {
     grid-template-columns: 1fr;
   }
 
-  .video-controls {
+  .video-controls-voice {
     flex-direction: column;
     align-items: stretch;
   }
