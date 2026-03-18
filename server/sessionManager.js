@@ -3,6 +3,9 @@ const { v4: uuidv4 } = require('uuid');
 // 활성 세션을 메모리에 보관
 const sessions = new Map();
 
+const PCM_SAMPLE_RATE = 16000;
+const PCM_BYTES_PER_SAMPLE = 2; // 16-bit (linear16)
+
 function createSession(engine) {
   const sessionId = uuidv4();
   const session = {
@@ -12,7 +15,7 @@ function createSession(engine) {
     conversation: [],
     currentQuestionIndex: 0,
     audioChunks: [],
-    lastAnswerAudioChunks: [],
+    allAnswerAudioChunks: [],
   };
   sessions.set(sessionId, session);
   return session;
@@ -63,7 +66,7 @@ function appendAudioChunk(sessionId, chunk) {
   const session = sessions.get(sessionId);
   if (!session) return;
   session.audioChunks.push(chunk);
-  session.lastAnswerAudioChunks.push(chunk);
+  session.allAnswerAudioChunks.push(chunk);
 }
 
 function clearAudioChunks(sessionId) {
@@ -72,16 +75,17 @@ function clearAudioChunks(sessionId) {
   session.audioChunks = [];
 }
 
-function clearLastAnswerAudio(sessionId) {
+function getAllAnswerAudio(sessionId) {
   const session = sessions.get(sessionId);
-  if (!session) return;
-  session.lastAnswerAudioChunks = [];
+  if (!session || session.allAnswerAudioChunks.length === 0) return null;
+  return Buffer.concat(session.allAnswerAudioChunks);
 }
 
-function getLastAnswerAudio(sessionId) {
+function getAllAnswerAudioDuration(sessionId) {
   const session = sessions.get(sessionId);
-  if (!session) return null;
-  return Buffer.concat(session.lastAnswerAudioChunks);
+  if (!session) return 0;
+  const totalBytes = session.allAnswerAudioChunks.reduce((sum, c) => sum + c.length, 0);
+  return totalBytes / (PCM_SAMPLE_RATE * PCM_BYTES_PER_SAMPLE);
 }
 
 function getAudioBuffer(sessionId) {
@@ -122,8 +126,8 @@ module.exports = {
   setEngine,
   appendAudioChunk,
   clearAudioChunks,
-  clearLastAnswerAudio,
-  getLastAnswerAudio,
+  getAllAnswerAudio,
+  getAllAnswerAudioDuration,
   getAudioBuffer,
   toJSON,
   setAudioUrl,

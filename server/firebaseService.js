@@ -149,30 +149,66 @@ async function saveGeneratedVideo(userId, videoData) {
   }
 }
 
-// ── 음성 파일 저장 → voice/{userId} ──
+function buildWavBuffer(pcmBuffer) {
+  const sampleRate = 16000;
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const dataSize = pcmBuffer.length;
+
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(44 + dataSize - 8, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  return Buffer.concat([header, pcmBuffer]);
+}
+
+// ── 음성 파일 저장 → Storage voice/{userId}.wav + Firestore voice/{userId} ──
 async function saveVoice(userId, audioBuffer, originalFileName, originalMimeType) {
-  if (!isReady()) return null;
+  if (!isReady() || !bucket) return null;
   try {
+    const wavBuffer = buildWavBuffer(audioBuffer);
+    const storagePath = `voice/${userId}.wav`;
+    const file = bucket.file(storagePath);
+
+    await file.save(wavBuffer, {
+      metadata: { contentType: 'audio/wav' },
+    });
+
+    const [storageUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: '2030-01-01',
+    });
+
     const now = admin.firestore.Timestamp.now();
-    const uniqueSuffix = `${Date.now()}-${Math.floor(Math.random() * 1000000000)}`;
-    const mp3FileName = `voice_${userId}_${uniqueSuffix}.mp3`;
-    const audioBase64 = audioBuffer.toString('base64');
+    const durationSec = audioBuffer.length / (16000 * 2);
 
     await db.collection('voice').doc(userId).set({
-      audioData: audioBase64,
-      audioType: 'audio/mp3',
+      storageUrl,
+      storagePath,
+      audioType: 'audio/wav',
+      durationSec: Math.round(durationSec * 10) / 10,
+      fileSizeBytes: wavBuffer.length,
       converted: false,
       createdAt: now,
-      mp3File: mp3FileName,
-      originalAudioType: originalMimeType || 'audio/mpeg',
-      originalFile: mp3FileName,
-      originalFileName: originalFileName || 'recorded_voice.mp3',
       timestamp: now,
       userId,
     });
 
-    console.log(`[FIREBASE] Voice saved for user: ${userId}`);
-    return mp3FileName;
+    console.log(`[FIREBASE] Voice saved: ${storagePath} (${durationSec.toFixed(1)}s, ${(wavBuffer.length / 1024).toFixed(1)}KB)`);
+    return storagePath;
   } catch (err) {
     console.error('[FIREBASE] Voice save failed:', err.message);
     return null;
@@ -206,6 +242,18 @@ async function uploadAudio(sessionId, audioBuffer, mimeType = 'audio/webm') {
   }
 }
 
+async function getVoice(userId) {
+  if (!isReady()) return null;
+  try {
+    const doc = await db.collection('voice').doc(userId).get();
+    if (!doc.exists) return null;
+    return doc.data();
+  } catch (err) {
+    console.error('[FIREBASE] getVoice failed:', err.message);
+    return null;
+  }
+}
+
 module.exports = {
   init,
   isReady,
@@ -214,6 +262,7 @@ module.exports = {
   saveConversation,
   saveExhibPersona,
   saveVoice,
+  getVoice,
   saveChatHistory,
   saveGeneratedVideo,
   uploadAudio,

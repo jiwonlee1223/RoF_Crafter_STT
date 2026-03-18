@@ -139,6 +139,52 @@ app.get('/api/session/:sessionId', (req, res) => {
   res.json(data);
 });
 
+// ── 저장된 음성 재생 (Storage에서 WAV 스트리밍) ──
+app.get('/api/voice/:userId', async (req, res) => {
+  try {
+    const voiceDoc = await firebaseService.getVoice(req.params.userId);
+    if (!voiceDoc) {
+      return res.status(404).json({ error: '음성 데이터를 찾을 수 없습니다' });
+    }
+
+    if (voiceDoc.storageUrl) {
+      console.log(`[VOICE] Redirecting to Storage for ${req.params.userId} (${voiceDoc.durationSec}s)`);
+      return res.redirect(voiceDoc.storageUrl);
+    }
+
+    // 레거시: Firestore에 base64로 저장된 경우
+    if (voiceDoc.audioData) {
+      const pcmBuffer = Buffer.from(voiceDoc.audioData, 'base64');
+      const byteRate = 16000 * 1 * 2;
+      const dataSize = pcmBuffer.length;
+
+      const header = Buffer.alloc(44);
+      header.write('RIFF', 0);
+      header.writeUInt32LE(44 + dataSize - 8, 4);
+      header.write('WAVE', 8);
+      header.write('fmt ', 12);
+      header.writeUInt32LE(16, 16);
+      header.writeUInt16LE(1, 20);
+      header.writeUInt16LE(1, 22);
+      header.writeUInt32LE(16000, 24);
+      header.writeUInt32LE(byteRate, 28);
+      header.writeUInt16LE(2, 32);
+      header.writeUInt16LE(16, 34);
+      header.write('data', 36);
+      header.writeUInt32LE(dataSize, 40);
+
+      const wavBuffer = Buffer.concat([header, pcmBuffer]);
+      res.set({ 'Content-Type': 'audio/wav', 'Content-Length': wavBuffer.length });
+      return res.send(wavBuffer);
+    }
+
+    return res.status(404).json({ error: '음성 데이터를 찾을 수 없습니다' });
+  } catch (err) {
+    console.error('[VOICE] Playback failed:', err.message);
+    res.status(500).json({ error: '음성 재생 실패' });
+  }
+});
+
 wss.on('connection', async (ws, req) => {
   const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
   const loggedInUserId = params.get('userId') || null;
@@ -402,16 +448,26 @@ wss.on('connection', async (ws, req) => {
   });
 });
 
+const MIN_VOICE_DURATION_SEC = 4.6;
+
 async function handleSessionComplete(sessionId, ws, userId, birthDateTime, onFashionPrompt) {
   try {
-    const lastAudio = sessionManager.getLastAnswerAudio(sessionId);
+    const combinedAudio = sessionManager.getAllAnswerAudio(sessionId);
+    const audioDuration = sessionManager.getAllAnswerAudioDuration(sessionId);
     let audioUrl = null;
-    if (lastAudio && lastAudio.length > 0) {
-      audioUrl = await firebaseService.uploadAudio(sessionId, lastAudio);
-      if (audioUrl) sessionManager.setAudioUrl(sessionId, audioUrl);
 
-      const voiceUserId = userId || sessionId;
-      await firebaseService.saveVoice(voiceUserId, lastAudio, 'recorded_voice.mp3', 'audio/mpeg');
+    if (combinedAudio && combinedAudio.length > 0) {
+      console.log(`[VOICE] Combined audio: ${(combinedAudio.length / 1024).toFixed(1)}KB, duration: ${audioDuration.toFixed(1)}s`);
+
+      if (audioDuration < MIN_VOICE_DURATION_SEC) {
+        console.warn(`[VOICE] Audio too short (${audioDuration.toFixed(1)}s < ${MIN_VOICE_DURATION_SEC}s) — skipping voice save`);
+      } else {
+        audioUrl = await firebaseService.uploadAudio(sessionId, combinedAudio);
+        if (audioUrl) sessionManager.setAudioUrl(sessionId, audioUrl);
+
+        const voiceUserId = userId || sessionId;
+        await firebaseService.saveVoice(voiceUserId, combinedAudio, 'recorded_voice.mp3', 'audio/mpeg');
+      }
     }
 
     const sessionData = sessionManager.toJSON(sessionId);
