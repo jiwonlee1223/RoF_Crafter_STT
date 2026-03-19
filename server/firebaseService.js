@@ -9,14 +9,21 @@ let initialized = false;
 function init() {
   if (initialized) return;
 
-  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-  if (!serviceAccountPath || !process.env.FIREBASE_PROJECT_ID) {
+  if (!process.env.FIREBASE_PROJECT_ID) {
     console.warn('[FIREBASE] Config missing - Firebase features disabled');
     return;
   }
 
   try {
-    const serviceAccount = require(path.resolve(serviceAccountPath));
+    let serviceAccount;
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+      serviceAccount = require(path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH));
+    } else {
+      console.warn('[FIREBASE] No service account provided - Firebase features disabled');
+      return;
+    }
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
