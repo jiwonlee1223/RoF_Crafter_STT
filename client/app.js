@@ -49,8 +49,6 @@
   const videoStatusEl = document.getElementById('video-status');
   const videoProgressFill = document.getElementById('video-progress-fill');
   const videoResult = document.getElementById('video-result');
-  const videoSpeaking = document.getElementById('video-speaking');
-  const videoListening = document.getElementById('video-listening');
 
   // --- State ---
   let ws = null;
@@ -277,8 +275,6 @@
       case 'video_complete':
         videoStatusEl.style.display = 'none';
         videoResult.style.display = 'block';
-        if (msg.speakingUrl) videoSpeaking.src = msg.speakingUrl;
-        if (msg.listeningUrl) videoListening.src = msg.listeningUrl;
         btnGenerateVideo.disabled = false;
         btnGenerateVideo.classList.remove('btn-video-loading');
         voiceStatusText.textContent = 'RoF Studio에서 기다리고 있어요';
