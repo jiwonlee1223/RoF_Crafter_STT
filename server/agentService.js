@@ -237,10 +237,13 @@ const PERSONA_SYSTEM_PROMPT = `당신은 사용자의 10년 후 미래 모습을
 
 /**
  * 대화 이력을 기반으로 10년 후 전시용 페르소나를 생성한다.
+ * 구조화된 템플릿 변수(persona + voice)와 함께 personaText, cardText, fashionPrompt를 반환한다.
  * @param {Array} conversationHistory - [{role: 'agent'|'user', text: string}]
- * @returns {Promise<{personaText: string, cardText: string}>}
+ * @param {string} birthDateTime - 사용자 생년월일시
+ * @param {string} userName - 사용자 이름
+ * @returns {Promise<{personaText: string, cardText: string, fashionPrompt: string, personaVars: object}>}
  */
-async function generateExhibPersona(conversationHistory, birthDateTime) {
+async function generateExhibPersona(conversationHistory, birthDateTime, userName) {
   if (!openai) throw new Error('OpenAI client not initialized');
 
   const userContext = conversationHistory
@@ -251,6 +254,74 @@ async function generateExhibPersona(conversationHistory, birthDateTime) {
     ? `\n[사용자 생년월일시]\n${birthDateTime}\n`
     : '';
 
+  const nameInfo = userName ? `\n[사용자 이름]\n${userName}\n` : '';
+
+  // ── 1단계: 구조화된 페르소나 변수 생성 (JSON) ──
+  const varsPrompt = `다음 대화 데이터를 기반으로 사용자의 10년 후 미래 페르소나를 예측하고, 아래 JSON 형식으로 **정확히** 출력하세요.
+반드시 유효한 JSON만 출력하세요. 설명이나 마크다운 코드 블록 없이 순수 JSON만 출력합니다.
+
+{
+  "persona": {
+    "user_name": "사용자 이름 (주어진 이름 사용)",
+    "age": 10년 후 나이(숫자),
+    "future_job": "10년 후 직업",
+    "city": "10년 후 거주 도시",
+    "life_detail": "10년 후 생활 요약 한 줄",
+    "key_memories": "과거(현재 시점) 주요 기억들 2-3가지",
+    "personality_traits": "성격 특성 요약",
+    "speech_habits": "말버릇/화법 특징"
+  },
+  "voice": {
+    "example_activity": "10년 후 시점에서 요즘 하는 활동",
+    "empathy_example": "과거(현재)를 돌아보며 공감하는 에피소드",
+    "reflection": "10년의 세월을 돌아본 회고/깨달음"
+  }
+}
+${nameInfo}${birthInfo}
+[참고 데이터]
+${userContext}
+
+[지침]
+- user_name: 주어진 사용자 이름을 그대로 사용. 없으면 대화에서 추론.
+- age: 현재 나이(생년월일 기반) + 10
+- future_job: 대화 내용에서 추론한 구체적 직업명
+- city: 대화 맥락에서 추론. 불명확하면 현재 위치 기반 예측
+- life_detail: "~에서 ~와 함께 살고 있다" 형식의 한 줄 묘사
+- key_memories: 대화에서 언급된 현재 시점의 중요한 경험/기억
+- personality_traits: 대화에서 드러난 성격 특성을 한 문장으로
+- speech_habits: 대화 패턴에서 추출한 말투/화법 특징
+- example_activity: 미래 직업/생활과 연결된 구체적 활동
+- empathy_example: 과거(현재)의 고민/경험을 돌아보는 공감 문장
+- reflection: 10년을 살아본 뒤의 깨달음 한 문장`;
+
+  const varsResponse = await openai.chat.completions.create({
+    model: 'gpt-5.4',
+    messages: [
+      { role: 'system', content: PERSONA_SYSTEM_PROMPT },
+      { role: 'user', content: varsPrompt },
+    ],
+    max_completion_tokens: 1500,
+    temperature: 0.85,
+  });
+
+  let personaVars = {};
+  const varsRaw = varsResponse.choices[0]?.message?.content?.trim() || '{}';
+  try {
+    // JSON 코드블록 마크다운 제거
+    const cleaned = varsRaw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    personaVars = JSON.parse(cleaned);
+  } catch (e) {
+    console.warn(`[AGENT] PersonaVars JSON parse failed, attempting recovery: ${e.message}`);
+    try {
+      const jsonMatch = varsRaw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) personaVars = JSON.parse(jsonMatch[0]);
+    } catch (e2) {
+      console.error(`[AGENT] PersonaVars recovery also failed: ${e2.message}`);
+    }
+  }
+  console.log(`[AGENT] PersonaVars generated:`, JSON.stringify(personaVars, null, 2));
+
+  // ── 2단계: 기존 서술형 페르소나 텍스트 생성 ──
   const userPrompt = `다음의 출력 항목 형식에 따라 사용자의 미래시점의 페르소나를 묘사하세요.
 {
     직업, 사회적 위치 (Profession, Social Status)
@@ -286,23 +357,18 @@ ${userContext}
   const personaText = personaResponse.choices[0]?.message?.content?.trim() || '';
   console.log(`[AGENT] ExhibPersona generated (${personaText.length} chars)`);
 
-  const cardResponse = await openai.chat.completions.create({
-    model: 'gpt-5.4',
-    messages: [
-      { role: 'system', content: '다음 페르소나 텍스트를 정확히 1문장으로 축약하세요. 핵심 키워드와 미래 방향성을 담아 간결하게 작성하세요.' },
-      { role: 'user', content: personaText },
-    ],
-    max_completion_tokens: 1000,
-    temperature: 0.7,
-  });
-
-  const cardText = cardResponse.choices[0]?.message?.content?.trim() || '';
-  console.log(`[AGENT] ExhibPersona card generated (${cardText.length} chars)`);
-
-  // 페르소나에서 패션/헤어스타일을 영어 이미지 프롬프트로 변환
-  let fashionPrompt = '';
-  try {
-    const styleResponse = await openai.chat.completions.create({
+  // ── 3단계: 카드 텍스트 + 패션 프롬프트 (병렬) ──
+  const [cardResponse, styleResponse] = await Promise.all([
+    openai.chat.completions.create({
+      model: 'gpt-5.4',
+      messages: [
+        { role: 'system', content: '다음 페르소나 텍스트를 정확히 1문장으로 축약하세요. 핵심 키워드와 미래 방향성을 담아 간결하게 작성하세요.' },
+        { role: 'user', content: personaText },
+      ],
+      max_completion_tokens: 1000,
+      temperature: 0.7,
+    }),
+    openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
@@ -322,14 +388,19 @@ Rules:
       ],
       max_tokens: 100,
       temperature: 0.5,
-    });
-    fashionPrompt = styleResponse.choices[0]?.message?.content?.trim() || '';
-    console.log(`[AGENT] FashionPrompt: "${fashionPrompt}"`);
-  } catch (err) {
-    console.warn(`[AGENT] FashionPrompt generation failed: ${err.message}`);
-  }
+    }).catch(err => {
+      console.warn(`[AGENT] FashionPrompt generation failed: ${err.message}`);
+      return { choices: [{ message: { content: '' } }] };
+    }),
+  ]);
 
-  return { personaText, cardText, fashionPrompt };
+  const cardText = cardResponse.choices[0]?.message?.content?.trim() || '';
+  console.log(`[AGENT] ExhibPersona card generated (${cardText.length} chars)`);
+
+  const fashionPrompt = styleResponse.choices[0]?.message?.content?.trim() || '';
+  if (fashionPrompt) console.log(`[AGENT] FashionPrompt: "${fashionPrompt}"`);
+
+  return { personaText, cardText, fashionPrompt, personaVars };
 }
 
 module.exports = { init, generateResponse, generateGreeting, generateExhibPersona, SYSTEM_PROMPT };

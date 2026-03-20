@@ -90,24 +90,38 @@ async function saveConversation(userId, sessionData) {
   }
 }
 
-// ── 전시용 페르소나 저장 → responses/{userId}/exhibPersona/data + card ──
-async function saveExhibPersona(userId, personaText, cardText) {
+// ── 전시용 페르소나 저장 → responses/{userId}/exhibPersona/data + card + vars ──
+async function saveExhibPersona(userId, personaText, cardText, personaVars) {
   if (!isReady()) return null;
   try {
     const root = db.collection('responses').doc(userId);
     const now = new Date().toISOString();
 
-    await root.collection('exhibPersona').doc('data').set({
-      text: personaText,
-      createdAt: now,
-      personaType: 'exhib',
-    });
+    const saves = [
+      root.collection('exhibPersona').doc('data').set({
+        text: personaText,
+        createdAt: now,
+        personaType: 'exhib',
+      }),
+      root.collection('exhibPersona').doc('card').set({
+        text: cardText,
+        createdAt: now,
+        personaType: 'exhib',
+      }),
+    ];
 
-    await root.collection('exhibPersona').doc('card').set({
-      text: cardText,
-      createdAt: now,
-      personaType: 'exhib',
-    });
+    // 구조화된 페르소나 변수 저장
+    if (personaVars && Object.keys(personaVars).length > 0) {
+      saves.push(
+        root.collection('exhibPersona').doc('vars').set({
+          ...personaVars,
+          createdAt: now,
+          personaType: 'exhib',
+        })
+      );
+    }
+
+    await Promise.all(saves);
 
     console.log(`[FIREBASE] ExhibPersona saved for user: ${userId}`);
     return true;

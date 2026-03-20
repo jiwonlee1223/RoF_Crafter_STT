@@ -321,7 +321,7 @@ wss.on('connection', async (ws, req) => {
         // 모든 질문 소진 → 세션 종료
         if (questionIndex >= MAX_TURNS) {
           console.log(`[FLOW] All ${MAX_TURNS} questions done, completing session`);
-          await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime);
+          await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, userName);
           break;
         }
 
@@ -353,7 +353,7 @@ wss.on('connection', async (ws, req) => {
       }
 
       case 'end_session': {
-        await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, (fp) => {
+        await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, userName, (fp) => {
           personaStylePrompt = fp;
         });
         break;
@@ -450,7 +450,7 @@ wss.on('connection', async (ws, req) => {
 
 const MIN_VOICE_DURATION_SEC = 4.6;
 
-async function handleSessionComplete(sessionId, ws, userId, birthDateTime, onFashionPrompt) {
+async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userName, onFashionPrompt) {
   try {
     const combinedAudio = sessionManager.getAllAnswerAudio(sessionId);
     const audioDuration = sessionManager.getAllAnswerAudioDuration(sessionId);
@@ -485,18 +485,18 @@ async function handleSessionComplete(sessionId, ws, userId, birthDateTime, onFas
 
     // 페르소나 생성은 비동기로 (클라이언트 응답 블로킹 없이)
     const history = sessionData.conversation || [];
-    generateAndSavePersona(docUserId, history, birthDateTime, onFashionPrompt);
+    generateAndSavePersona(docUserId, history, birthDateTime, userName, onFashionPrompt);
   } catch (err) {
     console.error('[SESSION] Save failed:', err.message);
     ws.send(JSON.stringify({ type: 'error', message: 'Session save failed' }));
   }
 }
 
-async function generateAndSavePersona(userId, conversationHistory, birthDateTime, onFashionPrompt) {
+async function generateAndSavePersona(userId, conversationHistory, birthDateTime, userName, onFashionPrompt) {
   try {
     console.log(`[PERSONA] Generating exhib persona for: ${userId}`);
-    const { personaText, cardText, fashionPrompt } = await agentService.generateExhibPersona(conversationHistory, birthDateTime);
-    await firebaseService.saveExhibPersona(userId, personaText, cardText);
+    const { personaText, cardText, fashionPrompt, personaVars } = await agentService.generateExhibPersona(conversationHistory, birthDateTime, userName);
+    await firebaseService.saveExhibPersona(userId, personaText, cardText, personaVars);
     if (fashionPrompt && onFashionPrompt) {
       onFashionPrompt(fashionPrompt);
       console.log(`[PERSONA] Fashion prompt saved for video: "${fashionPrompt}"`);
