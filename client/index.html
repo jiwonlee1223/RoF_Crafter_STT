@@ -130,13 +130,30 @@
     <!-- 비디오 생성 영역 -->
     <section id="video-section" class="video-section-voice" style="display:none;">
       <div id="video-controls" class="video-controls-voice">
-        <label class="file-upload-label-voice">
-          <input type="file" id="video-image-input" accept="image/*" />
-          <span id="video-image-label-text">프로필 이미지 선택</span>
-        </label>
+        <input type="file" id="video-image-input" accept="image/*" style="display:none;" />
+        <button id="btn-open-camera" class="file-upload-label-voice" type="button">
+          <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;">photo_camera</span>
+          <span id="video-image-label-text">프로필 사진 촬영</span>
+        </button>
         <button id="btn-generate-video" class="btn-primary btn-icon" disabled>
           <span class="material-symbols-outlined">videocam</span>
         </button>
+      </div>
+      <!-- 카메라 촬영 모달 -->
+      <div id="camera-modal" class="camera-modal" style="display:none;">
+        <div class="camera-modal-content">
+          <video id="camera-preview" autoplay playsinline></video>
+          <canvas id="camera-capture-canvas" style="display:none;"></canvas>
+          <img id="camera-captured-img" class="camera-captured-img" style="display:none;" />
+          <div class="camera-controls">
+            <button id="btn-camera-close" class="btn-camera-action btn-camera-close-style" type="button">취소</button>
+            <button id="btn-camera-capture" class="btn-camera-action btn-camera-capture-style" type="button">
+              <span class="material-symbols-outlined">photo_camera</span>
+            </button>
+            <button id="btn-camera-retake" class="btn-camera-action btn-camera-close-style" type="button" style="display:none;">다시 촬영</button>
+            <button id="btn-camera-confirm" class="btn-camera-action btn-camera-confirm-style" type="button" style="display:none;">사용하기</button>
+          </div>
+        </div>
       </div>
       <div id="video-status" class="video-status" style="display:none;">
         <div class="video-status-text"></div>

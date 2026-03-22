@@ -381,6 +381,80 @@ body {
   display: none;
 }
 
+/* Camera Modal */
+.camera-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-modal-content {
+  width: 90%;
+  max-width: 400px;
+  background: var(--surface-1, #1a1a2e);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.camera-modal-content video,
+.camera-modal-content .camera-captured-img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: #000;
+}
+
+.camera-controls {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  justify-content: center;
+  width: 100%;
+}
+
+.btn-camera-action {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-camera-capture-style {
+  background: var(--primary, #6c63ff);
+  color: #fff;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  justify-content: center;
+}
+
+.btn-camera-capture-style:hover {
+  opacity: 0.85;
+}
+
+.btn-camera-close-style {
+  background: var(--surface-2, #2a2a3e);
+  color: var(--text-secondary, #aaa);
+}
+
+.btn-camera-confirm-style {
+  background: var(--primary, #6c63ff);
+  color: #fff;
+}
+
 .video-status {
   margin-top: 14px;
 }

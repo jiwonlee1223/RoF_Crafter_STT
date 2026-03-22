@@ -50,6 +50,17 @@
   const videoProgressFill = document.getElementById('video-progress-fill');
   const videoResult = document.getElementById('video-result');
 
+  // Camera DOM
+  const btnOpenCamera = document.getElementById('btn-open-camera');
+  const cameraModal = document.getElementById('camera-modal');
+  const cameraPreview = document.getElementById('camera-preview');
+  const cameraCaptureCanvas = document.getElementById('camera-capture-canvas');
+  const cameraCapturedImg = document.getElementById('camera-captured-img');
+  const btnCameraCapture = document.getElementById('btn-camera-capture');
+  const btnCameraClose = document.getElementById('btn-camera-close');
+  const btnCameraRetake = document.getElementById('btn-camera-retake');
+  const btnCameraConfirm = document.getElementById('btn-camera-confirm');
+
   // --- State ---
   let ws = null;
   let sessionId = null;
@@ -61,6 +72,8 @@
   let pcmWorkletNode = null;
   let isRecording = false;
   let isSpeaking = false;
+  let capturedImageFile = null; // File from camera capture
+  let cameraStream = null;
   let currentQuestion = null;
   let totalQuestions = 0;
   let questionIndex = 0;
@@ -616,22 +629,106 @@
     }
   });
 
+  // --- Camera Capture ---
+  function stopCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+    }
+    if (cameraPreview) cameraPreview.srcObject = null;
+  }
+
+  function showCameraLive() {
+    cameraCapturedImg.style.display = 'none';
+    cameraPreview.style.display = '';
+    btnCameraCapture.style.display = '';
+    btnCameraRetake.style.display = 'none';
+    btnCameraConfirm.style.display = 'none';
+  }
+
+  function showCameraCaptured() {
+    cameraPreview.style.display = 'none';
+    cameraCapturedImg.style.display = '';
+    btnCameraCapture.style.display = 'none';
+    btnCameraRetake.style.display = '';
+    btnCameraConfirm.style.display = '';
+  }
+
+  if (btnOpenCamera) {
+    btnOpenCamera.addEventListener('click', async () => {
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } }
+        });
+        cameraPreview.srcObject = cameraStream;
+        cameraModal.style.display = '';
+        showCameraLive();
+      } catch (err) {
+        alert('카메라에 접근할 수 없습니다. 카메라 권한을 확인해주세요.');
+        console.error('Camera access error:', err);
+      }
+    });
+  }
+
+  if (btnCameraCapture) {
+    btnCameraCapture.addEventListener('click', () => {
+      const video = cameraPreview;
+      const size = Math.min(video.videoWidth, video.videoHeight);
+      cameraCaptureCanvas.width = size;
+      cameraCaptureCanvas.height = size;
+      const ctx = cameraCaptureCanvas.getContext('2d');
+      const offsetX = (video.videoWidth - size) / 2;
+      const offsetY = (video.videoHeight - size) / 2;
+      ctx.drawImage(video, offsetX, offsetY, size, size, 0, 0, size, size);
+      cameraCapturedImg.src = cameraCaptureCanvas.toDataURL('image/jpeg', 0.9);
+      showCameraCaptured();
+    });
+  }
+
+  if (btnCameraRetake) {
+    btnCameraRetake.addEventListener('click', () => {
+      showCameraLive();
+    });
+  }
+
+  if (btnCameraConfirm) {
+    btnCameraConfirm.addEventListener('click', () => {
+      cameraCaptureCanvas.toBlob((blob) => {
+        capturedImageFile = new File([blob], 'profile-capture.jpg', { type: 'image/jpeg' });
+        btnGenerateVideo.disabled = false;
+        if (videoImageLabelText) {
+          videoImageLabelText.textContent = '촬영 완료';
+        }
+        stopCamera();
+        cameraModal.style.display = 'none';
+      }, 'image/jpeg', 0.9);
+    });
+  }
+
+  if (btnCameraClose) {
+    btnCameraClose.addEventListener('click', () => {
+      stopCamera();
+      cameraModal.style.display = 'none';
+    });
+  }
+
   // --- Video Generation ---
   if (videoImageInput) {
     videoImageInput.addEventListener('change', () => {
       const hasFile = !!videoImageInput.files.length;
-      btnGenerateVideo.disabled = !hasFile;
-      if (videoImageLabelText) {
-        videoImageLabelText.textContent = hasFile
-          ? (videoImageInput.files[0]?.name || 'Image selected')
-          : '프로필 이미지 선택';
+      if (hasFile) {
+        capturedImageFile = videoImageInput.files[0];
+        btnGenerateVideo.disabled = false;
+        if (videoImageLabelText) {
+          videoImageLabelText.textContent = videoImageInput.files[0]?.name || 'Image selected';
+        }
       }
     });
   }
 
   if (btnGenerateVideo) {
     btnGenerateVideo.addEventListener('click', async () => {
-      const file = videoImageInput?.files[0];
+      const file = capturedImageFile;
       if (!file || !ws || ws.readyState !== WebSocket.OPEN) return;
 
       btnGenerateVideo.disabled = true;
