@@ -72,6 +72,7 @@
   let pcmWorkletNode = null;
   let isRecording = false;
   let isSpeaking = false;
+  let pendingClosing = false;
   let capturedImageFile = null; // File from camera capture
   let cameraStream = null;
   let currentQuestion = null;
@@ -258,6 +259,12 @@
         speakThenReady(msg.question.text);
         break;
 
+      case 'closing_remark':
+        pendingClosing = true;
+        addChatBubble('agent', msg.question.text);
+        speakThenReady(msg.question.text);
+        break;
+
       case 'session_complete':
         showSessionComplete(msg.session);
         break;
@@ -426,6 +433,14 @@
   }
 
   function setMicReady() {
+    // 마무리 멘트 TTS 재생 완료 → 세션 종료 요청
+    if (pendingClosing) {
+      pendingClosing = false;
+      btnStart.disabled = true;
+      ws.send(JSON.stringify({ type: 'end_session' }));
+      return;
+    }
+
     btnStart.disabled = false;
     micLabel.textContent = '';
     setOrbState('idle');

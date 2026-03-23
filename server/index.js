@@ -318,10 +318,27 @@ wss.on('connection', async (ws, req) => {
         finalTranscript = '';
         audioStartTime = null;
 
-        // 모든 질문 소진 → 세션 종료
+        // 모든 질문 소진 → 마무리 멘트 후 세션 종료
         if (questionIndex >= MAX_TURNS) {
-          console.log(`[FLOW] All ${MAX_TURNS} questions done, completing session`);
-          await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, userName);
+          console.log(`[FLOW] All ${MAX_TURNS} questions done, sending closing remark`);
+          try {
+            ws.send(JSON.stringify({ type: 'agent_thinking' }));
+
+            const history = sessionManager.getSession(sessionId).conversation
+              .map(t => ({ role: t.role, text: t.text }));
+
+            const closingRemark = await agentService.generateClosingRemark(history, userName);
+            sessionManager.addTurn(sessionId, 'agent', closingRemark);
+
+            ws.send(JSON.stringify({
+              type: 'closing_remark',
+              question: { text: closingRemark },
+            }));
+          } catch (err) {
+            console.error('[AGENT] Closing remark failed:', err.message);
+            // 실패해도 세션 종료는 진행
+            await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, userName);
+          }
           break;
         }
 
