@@ -101,7 +101,7 @@
     const userId = loginUserIdInput.value.trim();
     const password = loginPasswordInput.value;
     if (!userId || !password) {
-      showLoginError('아이디와 비밀번호를 입력해주세요');
+      showLoginError('이름과 생년월일을 입력해주세요');
       return;
     }
 

@@ -59,13 +59,13 @@ app.post('/api/register', async (req, res) => {
   try {
     const { userId, password } = req.body;
     if (!userId || !password) {
-      return res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요' });
+      return res.status(400).json({ error: '이름과 생년월일을 입력해주세요' });
     }
     if (userId.length < 2) {
-      return res.status(400).json({ error: '아이디는 2자 이상이어야 합니다' });
+      return res.status(400).json({ error: '이름은 2자 이상이어야 합니다' });
     }
-    if (password.length < 4) {
-      return res.status(400).json({ error: '비밀번호는 4자 이상이어야 합니다' });
+    if (!/^\d{6}$/.test(password)) {
+      return res.status(400).json({ error: '생년월일 6자리 숫자를 입력해주세요 (예: 990315)' });
     }
     await firebaseService.registerUser(userId, password);
     res.json({ success: true, userId });
@@ -80,7 +80,7 @@ app.post('/api/login', async (req, res) => {
   try {
     const { userId, password } = req.body;
     if (!userId || !password) {
-      return res.status(400).json({ error: '아이디와 비밀번호를 입력해주세요' });
+      return res.status(400).json({ error: '이름과 생년월일을 입력해주세요' });
     }
     await firebaseService.loginUser(userId, password);
     res.json({ success: true, userId });
