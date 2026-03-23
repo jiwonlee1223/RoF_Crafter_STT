@@ -57,18 +57,19 @@ app.use(express.json());
 // ── 회원가입 ──
 app.post('/api/register', async (req, res) => {
   try {
-    const { userId, password } = req.body;
-    if (!userId || !password) {
+    const { userId: name, password: birth } = req.body;
+    if (!name || !birth) {
       return res.status(400).json({ error: '이름과 생년월일을 입력해주세요' });
     }
-    if (userId.length < 2) {
+    if (name.length < 2) {
       return res.status(400).json({ error: '이름은 2자 이상이어야 합니다' });
     }
-    if (!/^\d{6}$/.test(password)) {
+    if (!/^\d{6}$/.test(birth)) {
       return res.status(400).json({ error: '생년월일 6자리 숫자를 입력해주세요 (예: 990315)' });
     }
-    await firebaseService.registerUser(userId, password);
-    res.json({ success: true, userId });
+    const internalId = `${name}_${birth}`;
+    await firebaseService.registerUser(internalId, birth);
+    res.json({ success: true, userId: internalId });
   } catch (err) {
     console.error('[AUTH] Register failed:', err.message);
     res.status(400).json({ error: err.message });
@@ -78,12 +79,13 @@ app.post('/api/register', async (req, res) => {
 // ── 로그인 ──
 app.post('/api/login', async (req, res) => {
   try {
-    const { userId, password } = req.body;
-    if (!userId || !password) {
+    const { userId: name, password: birth } = req.body;
+    if (!name || !birth) {
       return res.status(400).json({ error: '이름과 생년월일을 입력해주세요' });
     }
-    await firebaseService.loginUser(userId, password);
-    res.json({ success: true, userId });
+    const internalId = `${name}_${birth}`;
+    await firebaseService.loginUser(internalId, birth);
+    res.json({ success: true, userId: internalId });
   } catch (err) {
     console.error('[AUTH] Login failed:', err.message);
     res.status(401).json({ error: err.message });

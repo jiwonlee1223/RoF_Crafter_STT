@@ -13,12 +13,8 @@
   const userBadge = document.getElementById('user-badge');
   const btnLogout = document.getElementById('btn-logout');
 
-  // --- Profile DOM ---
-  const profileScreen = document.getElementById('profile-screen');
-  const profileForm = document.getElementById('profile-form');
-  const profileNameInput = document.getElementById('profile-name');
-  const profileBirthdateInput = document.getElementById('profile-birthdate');
-  const profileBirthtimeInput = document.getElementById('profile-birthtime');
+  // --- Gender DOM (login screen) ---
+  const loginGenderInputs = () => document.querySelector('input[name="login-gender"]:checked');
 
   // --- App DOM ---
   const connectionStatus = document.getElementById('connection-status');
@@ -119,8 +115,30 @@
       if (!res.ok) throw new Error(data.error || '요청 실패');
 
       loggedInUserId = data.userId;
+
+      // 로그인 화면에서 이름, 생년월일, 성별을 바로 추출
+      const loginName = loginUserIdInput.value.trim();
+      const loginBirth = loginPasswordInput.value.trim();
+      const loginGender = loginGenderInputs().value;
+
+      // 생년월일 6자리 → YYYY-MM-DD 변환
+      const yy = parseInt(loginBirth.substring(0, 2), 10);
+      const mm = loginBirth.substring(2, 4);
+      const dd = loginBirth.substring(4, 6);
+      const yyyy = yy >= 50 ? `19${loginBirth.substring(0, 2)}` : `20${loginBirth.substring(0, 2)}`;
+      const birthDate = `${yyyy}-${mm}-${dd}`;
+
+      userProfile = {
+        name: loginName,
+        gender: loginGender,
+        birthDateTime: birthDate,
+      };
+
       loginScreen.style.display = 'none';
-      profileScreen.style.display = 'flex';
+      appEl.style.display = 'flex';
+      userBadge.textContent = `${loginName} (${loggedInUserId})`;
+      connectWebSocket();
+      startOrbAnimation();
     } catch (err) {
       showLoginError(err.message);
     } finally {
@@ -143,7 +161,6 @@
     loggedInUserId = null;
     userProfile = { name: '', gender: 'female', birthDateTime: '' };
     appEl.style.display = 'none';
-    profileScreen.style.display = 'none';
     loginScreen.style.display = 'flex';
     loginUserIdInput.value = '';
     loginPasswordInput.value = '';
@@ -151,28 +168,7 @@
     stopOrbAnimation();
   });
 
-  // --- Profile Setup ---
-  profileForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = profileNameInput.value.trim();
-    const gender = document.querySelector('input[name="profile-gender"]:checked').value;
-    const birthDate = profileBirthdateInput.value;
-    const birthTime = profileBirthtimeInput.value || '';
-
-    if (!name || !birthDate) return;
-
-    userProfile = {
-      name,
-      gender,
-      birthDateTime: birthTime ? `${birthDate}T${birthTime}` : birthDate,
-    };
-
-    profileScreen.style.display = 'none';
-    appEl.style.display = 'flex';
-    userBadge.textContent = `${name} (${loggedInUserId})`;
-    connectWebSocket();
-    startOrbAnimation();
-  });
+  // --- Profile setup removed: login screen now collects all info ---
 
   // --- WebSocket ---
   function connectWebSocket() {
@@ -832,8 +828,8 @@
 
     // Outer glow
     const grad = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.8);
-    grad.addColorStop(0, 'rgba(108, 92, 231, 0.08)');
-    grad.addColorStop(1, 'rgba(108, 92, 231, 0)');
+    grad.addColorStop(0, 'rgba(73, 73, 73, 0.08)');
+    grad.addColorStop(1, 'rgba(73, 73, 73, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(cx, cy, r * 1.8, 0, Math.PI * 2);
@@ -841,12 +837,12 @@
 
     // Main orb with subtle distortion
     drawBlobOrb(ctx, cx, cy, r, t, 0.3, [
-      { r: 108, g: 92, b: 231, a: 0.6 },
-      { r: 90, g: 80, b: 200, a: 0.3 },
+      { r: 73, g: 73, b: 73, a: 0.6 },
+      { r: 60, g: 60, b: 60, a: 0.3 },
     ]);
   }
 
-  // --- Speaking: dynamic teal orb responding to TTS audio ---
+  // --- Speaking: dynamic red orb responding to TTS audio ---
   function drawSpeakingOrb(ctx, cx, cy, t, energy) {
     const baseR = 65;
     const audioBoost = energy * 30;
@@ -854,9 +850,9 @@
 
     // Glow
     const grad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2.2);
-    grad.addColorStop(0, `rgba(19, 216, 170, ${0.12 + energy * 0.15})`);
-    grad.addColorStop(0.5, `rgba(19, 216, 170, ${0.04 + energy * 0.06})`);
-    grad.addColorStop(1, 'rgba(19, 216, 170, 0)');
+    grad.addColorStop(0, `rgba(166, 26, 30, ${0.12 + energy * 0.15})`);
+    grad.addColorStop(0.5, `rgba(166, 26, 30, ${0.04 + energy * 0.06})`);
+    grad.addColorStop(1, 'rgba(166, 26, 30, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2);
@@ -868,7 +864,7 @@
       const phase = (t * 1.5 + i * 2.1) % 6;
       const rippleR = r + phase * 15;
       const alpha = Math.max(0, 0.15 - phase * 0.025) * (0.5 + energy);
-      ctx.strokeStyle = `rgba(19, 216, 170, ${alpha})`;
+      ctx.strokeStyle = `rgba(166, 26, 30, ${alpha})`;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(cx, cy, rippleR, 0, Math.PI * 2);
@@ -877,12 +873,12 @@
 
     // Main orb
     drawBlobOrb(ctx, cx, cy, r, t * 1.5, 0.5 + energy * 0.8, [
-      { r: 19, g: 216, b: 170, a: 0.7 },
-      { r: 13, g: 180, b: 150, a: 0.4 },
+      { r: 166, g: 26, b: 30, a: 0.7 },
+      { r: 140, g: 20, b: 24, a: 0.4 },
     ]);
   }
 
-  // --- Recording: purple responsive orb ---
+  // --- Recording: gray responsive orb ---
   function drawRecordingOrb(ctx, cx, cy, t, energy) {
     const baseR = 60;
     const audioBoost = energy * 35;
@@ -890,9 +886,9 @@
 
     // Glow
     const grad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2);
-    grad.addColorStop(0, `rgba(108, 92, 231, ${0.15 + energy * 0.2})`);
-    grad.addColorStop(0.6, `rgba(108, 92, 231, ${0.05 + energy * 0.08})`);
-    grad.addColorStop(1, 'rgba(108, 92, 231, 0)');
+    grad.addColorStop(0, `rgba(73, 73, 73, ${0.15 + energy * 0.2})`);
+    grad.addColorStop(0.6, `rgba(73, 73, 73, ${0.05 + energy * 0.08})`);
+    grad.addColorStop(1, 'rgba(73, 73, 73, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(cx, cy, r * 2, 0, Math.PI * 2);
@@ -901,7 +897,7 @@
     // Audio wave ring
     if (energy > 0.05 && orbAudioData) {
       ctx.save();
-      ctx.strokeStyle = `rgba(108, 92, 231, ${0.3 + energy * 0.3})`;
+      ctx.strokeStyle = `rgba(73, 73, 73, ${0.3 + energy * 0.3})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       const points = 64;
@@ -923,8 +919,8 @@
 
     // Main orb
     drawBlobOrb(ctx, cx, cy, r, t * 2, 0.6 + energy * 1.0, [
-      { r: 108, g: 92, b: 231, a: 0.8 },
-      { r: 140, g: 100, b: 255, a: 0.4 },
+      { r: 73, g: 73, b: 73, a: 0.8 },
+      { r: 90, g: 90, b: 90, a: 0.4 },
     ]);
   }
 
@@ -937,13 +933,13 @@
     ctx.save();
     const arcStart = t * 3;
     const arcLen = Math.PI * 1.2;
-    ctx.strokeStyle = 'rgba(108, 92, 231, 0.4)';
+    ctx.strokeStyle = 'rgba(73, 73, 73, 0.4)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(cx, cy, r + 20, arcStart, arcStart + arcLen);
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(19, 216, 170, 0.3)';
+    ctx.strokeStyle = 'rgba(166, 26, 30, 0.3)';
     ctx.beginPath();
     ctx.arc(cx, cy, r + 28, -arcStart * 0.7, -arcStart * 0.7 + arcLen * 0.8);
     ctx.stroke();
@@ -951,8 +947,8 @@
 
     // Glow
     const grad = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.6);
-    grad.addColorStop(0, 'rgba(108, 92, 231, 0.1)');
-    grad.addColorStop(1, 'rgba(108, 92, 231, 0)');
+    grad.addColorStop(0, 'rgba(73, 73, 73, 0.1)');
+    grad.addColorStop(1, 'rgba(73, 73, 73, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
@@ -960,8 +956,8 @@
 
     // Main orb (dimmer)
     drawBlobOrb(ctx, cx, cy, r, t, 0.4, [
-      { r: 108, g: 92, b: 231, a: 0.4 },
-      { r: 80, g: 70, b: 180, a: 0.2 },
+      { r: 73, g: 73, b: 73, a: 0.4 },
+      { r: 60, g: 60, b: 60, a: 0.2 },
     ]);
   }
 

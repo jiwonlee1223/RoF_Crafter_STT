@@ -1,15 +1,15 @@
 :root {
-  --bg: #0a0a0f;
-  --surface: #1a1d27;
-  --surface-2: #242836;
-  --border: #2e3348;
-  --text: #e4e6f0;
+  --bg: rgba(255, 255, 255, 0.6);
+  --surface: rgba(255, 255, 255, 0.6);
+  --surface-2: rgba(255, 255, 255, 0.4);
+  --border: rgba(0, 0, 0, 0.12);
+  --text: #2c2c2c;
   --text-dim: #6b6f85;
-  --primary: #6c5ce7;
-  --primary-hover: #7d6ff0;
-  --accent-dg: #13d8aa;
-  --accent-wh: #f39c12;
-  --danger: #e74c3c;
+  --primary: #494949;
+  --primary-hover: #5a5a5a;
+  --accent-dg: #A61A1E;
+  --accent-wh: #A61A1E;
+  --danger: #A61A1E;
   --success: #2ecc71;
   --radius: 12px;
   --radius-sm: 8px;
@@ -25,7 +25,7 @@
 
 body {
   font-family: var(--font);
-  background: var(--bg);
+  background: linear-gradient(135deg, #8D96A1, #D6DBE5);
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -44,7 +44,7 @@ body {
   align-items: center;
   position: relative;
   overflow: hidden;
-  background: radial-gradient(ellipse at 50% 40%, #12132a 0%, var(--bg) 70%);
+  background: linear-gradient(135deg, #8D96A1, #D6DBE5);
 }
 
 /* ── 상단 헤더 ── */
@@ -132,7 +132,7 @@ body {
   width: 200px;
   height: 200px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(108, 92, 231, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(73, 73, 73, 0.15) 0%, transparent 70%);
   filter: blur(30px);
   z-index: 1;
   transition: all 0.6s ease;
@@ -141,13 +141,13 @@ body {
 .orb-glow.speaking {
   width: 260px;
   height: 260px;
-  background: radial-gradient(circle, rgba(19, 216, 170, 0.25) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(166, 26, 30, 0.25) 0%, transparent 70%);
 }
 
 .orb-glow.recording {
   width: 240px;
   height: 240px;
-  background: radial-gradient(circle, rgba(108, 92, 231, 0.3) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(73, 73, 73, 0.3) 0%, transparent 70%);
 }
 
 .voice-status-text {
@@ -176,9 +176,9 @@ body {
   left: 50%;
   transform: translateX(-50%);
   z-index: 20;
-  background: rgba(26, 29, 39, 0.85);
+  background: var(--bg);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(108, 92, 231, 0.3);
+  border: 1px solid rgba(73, 73, 73, 0.3);
   border-radius: 20px;
   padding: 10px 20px;
   max-width: 80%;
@@ -187,7 +187,7 @@ body {
 
 .voice-transcript-text {
   font-size: 0.9rem;
-  color: var(--text);
+  color: #2c2c2c;
   text-align: center;
   line-height: 1.4;
   min-height: 20px;
@@ -285,20 +285,20 @@ body {
 .voice-mic-btn.push-to-talk:not(:disabled):active,
 .voice-mic-btn.recording {
   border-color: var(--primary);
-  background: rgba(108, 92, 231, 0.2);
+  background: rgba(73, 73, 73, 0.2);
   transform: scale(0.95);
   cursor: grabbing;
   animation: mic-pulse 1.5s infinite;
 }
 
 @keyframes mic-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(108, 92, 231, 0.4); }
-  50% { box-shadow: 0 0 0 16px rgba(108, 92, 231, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(73, 73, 73, 0.4); }
+  50% { box-shadow: 0 0 0 16px rgba(73, 73, 73, 0); }
 }
 
 .voice-mic-btn.speaking {
   border-color: var(--accent-dg);
-  background: rgba(19, 216, 170, 0.1);
+  background: rgba(166, 26, 30, 0.1);
 }
 
 .voice-mic-label {
@@ -395,7 +395,7 @@ body {
 .camera-modal-content {
   width: 90%;
   max-width: 400px;
-  background: var(--surface-1, #1a1a2e);
+  background: var(--surface);
   border-radius: 16px;
   overflow: hidden;
   display: flex;
@@ -421,18 +421,20 @@ body {
 
 .btn-camera-action {
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 600;
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
+  transition: all 0.2s ease;
 }
 
 .btn-camera-capture-style {
-  background: var(--primary, #6c63ff);
+  background: var(--primary);
   color: #fff;
   border-radius: 50%;
   width: 56px;
@@ -442,17 +444,27 @@ body {
 }
 
 .btn-camera-capture-style:hover {
-  opacity: 0.85;
+  background: var(--primary-hover);
 }
 
 .btn-camera-close-style {
-  background: var(--surface-2, #2a2a3e);
-  color: var(--text-secondary, #aaa);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.btn-camera-close-style:hover {
+  background: var(--surface);
+  color: var(--text);
 }
 
 .btn-camera-confirm-style {
-  background: var(--primary, #6c63ff);
+  background: var(--accent-dg);
   color: #fff;
+}
+
+.btn-camera-confirm-style:hover {
+  opacity: 0.85;
 }
 
 .video-status {
@@ -474,7 +486,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), var(--accent-dg));
+  background: linear-gradient(90deg, var(--primary), var(--accent-dg, #A61A1E));
   border-radius: 2px;
   transition: width 0.5s ease;
 }
@@ -525,24 +537,27 @@ body {
 }
 
 .login-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: transparent;
+  border: none;
   padding: 40px 36px;
   width: 100%;
   max-width: 400px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
+}
+
+.login-logo {
+  display: block;
+  margin: 0 auto 12px;
+  width: 120px;
+  height: auto;
 }
 
 .login-title {
   font-size: 1.8rem;
   font-weight: 700;
   text-align: center;
-  background: linear-gradient(135deg, var(--primary), var(--accent-dg));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 6px;
+  color: var(--text);
+  margin-bottom: 30px;
 }
 
 .login-subtitle {
@@ -555,7 +570,7 @@ body {
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 .input-group {
@@ -571,31 +586,49 @@ body {
 }
 
 .input-group input {
-  padding: 12px 14px;
+  padding: 15px;
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
+  border: 1px solid rgba(150, 150, 150, 0.3);
+  border-radius: 10px;
+  color: #494949;
   font-family: var(--font);
-  font-size: 0.92rem;
+  font-size: 1em;
   outline: none;
-  transition: border-color 0.2s;
+  opacity: 0.5;
+  transition: border-color 0.3s ease;
+  margin-bottom: 10px;
 }
 
 .input-group input:focus {
   border-color: var(--primary);
+  opacity: 1;
 }
 
 .input-group input::placeholder {
-  color: var(--text-dim);
-  opacity: 0.5;
+  color: var(--text);
+  opacity: 0.7;
 }
 
 .login-btn {
   width: 100%;
-  padding: 12px;
-  font-size: 0.95rem;
+  padding: 15px;
+  font-size: 1.1em;
   font-weight: 600;
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.login-btn.btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.login-btn.btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
 }
 
 .login-error {
@@ -637,7 +670,7 @@ body {
 
 .gender-radio input[type="radio"]:checked + .gender-radio-label {
   border-color: var(--primary);
-  background: rgba(108, 92, 231, 0.12);
+  background: rgba(73, 73, 73, 0.12);
   color: var(--primary);
   font-weight: 600;
 }
