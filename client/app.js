@@ -314,6 +314,24 @@
   let ttsAudioCtx = null;
   let ttsAbortCtrl = null;
 
+  // Mobile Safari: AudioContext must be created/resumed from a user gesture.
+  // Call this on any user tap to ensure TTS audio will work.
+  function ensureTtsAudioCtx() {
+    if (!ttsAudioCtx || ttsAudioCtx.state === 'closed') {
+      ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: TTS_SAMPLE_RATE,
+      });
+    }
+    if (ttsAudioCtx.state === 'suspended') {
+      ttsAudioCtx.resume();
+    }
+    return ttsAudioCtx;
+  }
+
+  // Pre-warm TTS AudioContext on any user interaction
+  document.addEventListener('touchstart', ensureTtsAudioCtx, { once: true });
+  document.addEventListener('click', ensureTtsAudioCtx, { once: true });
+
   async function speakThenReady(text) {
     btnStart.disabled = true;
     micLabel.textContent = '';
@@ -323,12 +341,9 @@
     setOrbState('speaking');
 
     if (ttsAbortCtrl) ttsAbortCtrl.abort();
-    if (ttsAudioCtx) { ttsAudioCtx.close(); ttsAudioCtx = null; }
 
     ttsAbortCtrl = new AbortController();
-    ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)({
-      sampleRate: TTS_SAMPLE_RATE,
-    });
+    ensureTtsAudioCtx();
 
     // Create analyser for orb visualization during TTS
     const ttsAnalyser = ttsAudioCtx.createAnalyser();
@@ -407,7 +422,6 @@
           isSpeaking = false;
           orbAudioData = null;
           btnStart.classList.remove('speaking');
-          if (ttsAudioCtx) { ttsAudioCtx.close(); ttsAudioCtx = null; }
           setMicReady();
         };
       } else {
@@ -423,7 +437,6 @@
       isSpeaking = false;
       orbAudioData = null;
       btnStart.classList.remove('speaking');
-      if (ttsAudioCtx) { ttsAudioCtx.close(); ttsAudioCtx = null; }
       setMicReady();
     }
   }

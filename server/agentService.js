@@ -8,11 +8,11 @@ const SYSTEM_PROMPT =
 
 ## 정체성
 - 스타일: 점잖은 안내자
-- 당신은 오래된 곳을 지키고 있는 사람처럼 말합니다.
+- 당신은 오래된 사진관을 지키고 있는 사진사입니다. 사진관에 찾아온 손님에게 질문을 던지고, 그들의 이야기를 듣는 역할입니다.
 - 서두르지 않습니다. 침묵을 불편해하지 않습니다.
 - 상대의 사정을 판단하지 않고, 있는 그대로 받아들입니다.
 - 말이 적지만, 필요한 말은 빠뜨리지 않습니다.
-- 당신의 응답은 항상 짧습니다. 2문장을 넘기지 않습니다.
+- 당신의 응답은 항상 짧습니다. 3문장을 넘기지 않습니다.
 
 ## 말투 규칙
 - 조용하고 점잖게. 감탄이나 리액션을 하지 않습니다.
@@ -74,7 +74,7 @@ const SYSTEM_PROMPT =
 ### 1단계: 인사 및 맥락 설명
 
 참여자에게 인사하고, 대화의 목적과 흐름을 간단히 설명합니다.
-"안녕하세요, 우리 사진관에 오신 것을 환영합니다. 오시는 길은 어떠셨나요?
+"안녕하세요, 저희 사진관에 오신 것을 환영합니다. 오시는 길은 어떠셨나요?
 촬영 전에 몇 가지를 여쭤볼 건데요. 정답은 없습니다.
 편하게, 하지만 솔직하게 이야기해 주시면 됩니다.
 준비되셨으면 시작하겠습니다."
@@ -164,7 +164,7 @@ async function generateResponse(conversationHistory, referenceQuestion, userName
     throw new Error('OpenAI client not initialized');
   }
 
-  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다. 대화 중 자연스럽게 이름을 불러주세요.\n` : '';
+  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다. 참여자의 이름을 20% 확률로 불러주세요. 그 외에는 사용자를 '손님', '당신'으로 불러주세요.\n` : '';
   const messages = [
     { role: 'system', content: nameContext + SYSTEM_PROMPT },
   ];
@@ -203,7 +203,7 @@ async function generateGreeting(referenceQuestion, userName) {
     return referenceQuestion || '안녕하세요! 오늘 기분이 어떠세요?';
   }
 
-  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다. 인사할 때 이름을 불러주세요.\n` : '';
+  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다. 인사할 때 사용자의 이름을 불러주세요.\n` : '';
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
@@ -411,13 +411,8 @@ Rules:
  */
 async function generateClosingRemark(conversationHistory, userName) {
   if (!openai) {
-    return '이야기 잘 들었습니다. 감사합니다.';
+    return '이야기 잘 들었습니다. 감사합니다. 5분 뒤 스튜디오로 들어와 주시겠어요?';
   }
-
-  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다.\n` : '';
-  const messages = [
-    { role: 'system', content: nameContext + SYSTEM_PROMPT },
-  ];
 
   for (const turn of conversationHistory) {
     messages.push({
@@ -428,7 +423,7 @@ async function generateClosingRemark(conversationHistory, userName) {
 
   messages.push({
     role: 'system',
-    content: `[지시] 모든 질문이 끝났습니다. 사용자의 이야기를 마무리하는 짧은 인사를 건네세요. "당신의 이야기가 쓰인다"는 메시지를 가볍게 담되, 2문장 이내로 짧게 마무리하세요.`,
+    content: `[지시] 모든 질문이 끝났습니다. 사용자의 이야기를 마무리하는 짧은 인사를 건네세요. '이야기 잘 들었습니다. 감사합니다. 5분 뒤 스튜디오로 들어와 주시겠어요?'와 같은 맥락의 내용을 필수로 포함하고, 3문장 이내로 짧게 마무리하세요.`,
   });
 
   const response = await openai.chat.completions.create({
@@ -438,7 +433,7 @@ async function generateClosingRemark(conversationHistory, userName) {
     temperature: 0.8,
   });
 
-  const text = response.choices[0]?.message?.content?.trim() || '이야기 잘 들었습니다. 감사합니다.';
+  const text = response.choices[0]?.message?.content?.trim() || '이야기 잘 들었습니다. 감사합니다. 5분 뒤 스튜디오로 들어와 주시겠어요?';
   console.log(`[AGENT] Closing remark: "${text}"`);
   return text;
 }
