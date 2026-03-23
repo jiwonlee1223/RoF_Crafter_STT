@@ -321,18 +321,28 @@
       ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)({
         sampleRate: TTS_SAMPLE_RATE,
       });
+      console.log('[TTS] AudioContext created, state:', ttsAudioCtx.state);
     }
     if (ttsAudioCtx.state === 'suspended') {
+      console.log('[TTS] AudioContext suspended, resuming...');
       ttsAudioCtx.resume();
     }
+    console.log('[TTS] AudioContext state:', ttsAudioCtx.state);
     return ttsAudioCtx;
   }
 
   // Pre-warm TTS AudioContext on any user interaction
-  document.addEventListener('touchstart', ensureTtsAudioCtx, { once: true });
-  document.addEventListener('click', ensureTtsAudioCtx, { once: true });
+  document.addEventListener('touchstart', () => {
+    console.log('[TTS] touchstart → ensureTtsAudioCtx');
+    ensureTtsAudioCtx();
+  }, { once: true });
+  document.addEventListener('click', () => {
+    console.log('[TTS] click → ensureTtsAudioCtx');
+    ensureTtsAudioCtx();
+  }, { once: true });
 
   async function speakThenReady(text) {
+    console.log('[TTS] speakThenReady called, text length:', text.length);
     btnStart.disabled = true;
     micLabel.textContent = '';
     btnStart.classList.remove('recording');
@@ -344,6 +354,7 @@
 
     ttsAbortCtrl = new AbortController();
     ensureTtsAudioCtx();
+    console.log('[TTS] AudioContext state before fetch:', ttsAudioCtx.state);
 
     // Create analyser for orb visualization during TTS
     const ttsAnalyser = ttsAudioCtx.createAnalyser();
@@ -370,10 +381,12 @@
         body: JSON.stringify({ text }),
         signal: ttsAbortCtrl.signal,
       });
-      if (!res.ok) throw new Error('TTS 요청 실패');
+      console.log('[TTS] fetch response status:', res.status);
+      if (!res.ok) throw new Error('TTS 요청 실패: ' + res.status);
 
       const reader = res.body.getReader();
       let scheduledTime = ttsAudioCtx.currentTime;
+      let chunkCount = 0;
       let lastSource = null;
       let leftover = null;
 
@@ -411,7 +424,9 @@
         src.start(scheduledTime);
         scheduledTime += buf.duration;
         lastSource = src;
+        chunkCount++;
       }
+      console.log('[TTS] stream done, chunks:', chunkCount, 'scheduledEnd:', scheduledTime);
 
       const FADE_OUT_SEC = 0.08;
       gainNode.gain.setValueAtTime(1, Math.max(0, scheduledTime - FADE_OUT_SEC));
@@ -432,7 +447,9 @@
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
-        console.error('[TTS] 스트리밍 재생 실패:', err);
+        console.error('[TTS] 스트리밍 재생 실패:', err.name, err.message);
+      } else {
+        console.log('[TTS] aborted');
       }
       isSpeaking = false;
       orbAudioData = null;
