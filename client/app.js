@@ -318,15 +318,21 @@
   // Call this on any user tap to ensure TTS audio will work.
   function ensureTtsAudioCtx() {
     if (!ttsAudioCtx || ttsAudioCtx.state === 'closed') {
-      // Do NOT specify sampleRate — iOS only supports native rate (48000).
-      // createBuffer(1, n, 24000) handles resampling automatically.
-      ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: TTS_SAMPLE_RATE,
+      });
       console.log('[TTS] AudioContext created, sampleRate:', ttsAudioCtx.sampleRate, 'state:', ttsAudioCtx.state);
     }
     if (ttsAudioCtx.state === 'suspended') {
       console.log('[TTS] AudioContext suspended, resuming...');
       ttsAudioCtx.resume();
     }
+    // iOS Safari: play a silent buffer to truly unlock audio output
+    const silentBuf = ttsAudioCtx.createBuffer(1, 1, ttsAudioCtx.sampleRate);
+    const silentSrc = ttsAudioCtx.createBufferSource();
+    silentSrc.buffer = silentBuf;
+    silentSrc.connect(ttsAudioCtx.destination);
+    silentSrc.start();
     console.log('[TTS] AudioContext state:', ttsAudioCtx.state);
     return ttsAudioCtx;
   }
