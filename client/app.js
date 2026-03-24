@@ -70,12 +70,14 @@
   let isSpeaking = false;
   let pendingClosing = false;
   let capturedImageFile = null; // File from camera capture
+  let personaReady = false;
   let cameraStream = null;
   let currentQuestion = null;
   let totalQuestions = 0;
   let questionIndex = 0;
   let animFrameId = null;
   let hasUserPressedRecordOnce = false;
+  let typewriterTimer = null;
 
   // --- Orb Animation State ---
   let orbAnimId = null;
@@ -244,6 +246,7 @@
 
       case 'agent_thinking':
         setOrbState('processing');
+        stopTypewriter();
         voiceStatusText.textContent = '';
         btnStart.disabled = true;
         break;
@@ -263,6 +266,11 @@
 
       case 'session_complete':
         showSessionComplete(msg.session);
+        break;
+
+      case 'persona_ready':
+        personaReady = true;
+        updateVideoButtonState();
         break;
 
       case 'transcript_rejected':
@@ -285,7 +293,7 @@
       case 'video_progress': {
         const pct = msg.total > 0 ? Math.round((msg.finished / msg.total) * 100) : 0;
         videoProgressFill.style.width = `${pct}%`;
-        videoStatusEl.querySelector('.video-status-text').textContent = `4분 뒤 RoF Studio에 방문해 주세요....`;
+        videoStatusEl.querySelector('.video-status-text').textContent = `잠시만 기다려 주세요....`;
         break;
       }
 
@@ -348,6 +356,13 @@
     ensureTtsAudioCtx();
   }, { once: true });
 
+  function stopTypewriter() {
+    if (typewriterTimer) {
+      cancelAnimationFrame(typewriterTimer);
+      typewriterTimer = null;
+    }
+  }
+
   async function speakThenReady(text) {
     console.log('[TTS] speakThenReady called, text length:', text.length);
     btnStart.disabled = true;
@@ -356,6 +371,8 @@
     btnStart.classList.add('speaking');
     isSpeaking = true;
     setOrbState('speaking');
+    stopTypewriter();
+    voiceStatusText.textContent = '';
 
     if (ttsAbortCtrl) ttsAbortCtrl.abort();
 
@@ -392,10 +409,30 @@
       if (!res.ok) throw new Error('TTS 요청 실패: ' + res.status);
 
       const reader = res.body.getReader();
-      let scheduledTime = ttsAudioCtx.currentTime;
+      const audioStartAt = ttsAudioCtx.currentTime;
+      let scheduledTime = audioStartAt;
       let chunkCount = 0;
       let lastSource = null;
       let leftover = null;
+      let shownLen = 0;
+
+      // rAF loop: sync text reveal with audio playback
+      const syncText = () => {
+        if (!isSpeaking) return;
+        const totalDur = scheduledTime - audioStartAt;
+        if (totalDur > 0) {
+          const elapsed = ttsAudioCtx.currentTime - audioStartAt;
+          const progress = Math.min(elapsed / totalDur, 1);
+          const target = Math.ceil(progress * text.length);
+          if (target > shownLen) {
+            voiceStatusText.textContent = text.slice(0, target);
+            voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
+            shownLen = target;
+          }
+        }
+        typewriterTimer = requestAnimationFrame(syncText);
+      };
+      typewriterTimer = requestAnimationFrame(syncText);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -441,12 +478,16 @@
 
       if (lastSource) {
         lastSource.onended = () => {
+          stopTypewriter();
+          voiceStatusText.textContent = text;
           isSpeaking = false;
           orbAudioData = null;
           btnStart.classList.remove('speaking');
           setMicReady();
         };
       } else {
+        stopTypewriter();
+        voiceStatusText.textContent = text;
         isSpeaking = false;
         orbAudioData = null;
         btnStart.classList.remove('speaking');
@@ -458,6 +499,7 @@
       } else {
         console.log('[TTS] aborted');
       }
+      stopTypewriter();
       isSpeaking = false;
       orbAudioData = null;
       btnStart.classList.remove('speaking');
@@ -477,7 +519,6 @@
     btnStart.disabled = false;
     micLabel.textContent = '';
     setOrbState('idle');
-    voiceStatusText.textContent = '';
     voiceSubtitle.textContent = '';
 
     if (!hasUserPressedRecordOnce && recordGuideBubble) {
@@ -659,13 +700,26 @@
     micLabel.textContent = '';
     btnEndSession.style.display = 'none';
     setOrbState('idle');
-    voiceStatusText.textContent = '대화가 종료되었습니다';
+    voiceStatusText.textContent = '아래 촬영 버튼을 눌러주세요.';
     voiceSubtitle.textContent = '';
 
     if (videoSection) {
       videoSection.style.display = 'block';
       videoResult.style.display = 'none';
       videoStatusEl.style.display = 'none';
+    }
+
+    if (btnGenerateVideo) {
+      btnGenerateVideo.classList.add('btn-video-preparing');
+    }
+  }
+
+  function updateVideoButtonState() {
+    if (btnGenerateVideo) {
+      btnGenerateVideo.disabled = !(capturedImageFile && personaReady);
+      if (personaReady) {
+        btnGenerateVideo.classList.remove('btn-video-preparing');
+      }
     }
   }
 
@@ -743,7 +797,7 @@
     btnCameraConfirm.addEventListener('click', () => {
       cameraCaptureCanvas.toBlob((blob) => {
         capturedImageFile = new File([blob], 'profile-capture.jpg', { type: 'image/jpeg' });
-        btnGenerateVideo.disabled = false;
+        updateVideoButtonState();
         if (videoImageLabelText) {
           videoImageLabelText.textContent = '촬영 완료';
         }
@@ -766,7 +820,7 @@
       const hasFile = !!videoImageInput.files.length;
       if (hasFile) {
         capturedImageFile = videoImageInput.files[0];
-        btnGenerateVideo.disabled = false;
+        updateVideoButtonState();
         if (videoImageLabelText) {
           videoImageLabelText.textContent = videoImageInput.files[0]?.name || 'Image selected';
         }

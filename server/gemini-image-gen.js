@@ -85,7 +85,7 @@ function getFutureAgeDecade(birthDateTime) {
     age--;
   }
 
-  const futureAge = Math.max(age + 10, 20);
+  const futureAge = Math.max(age + 15, 20);
   const remainder = futureAge % 10;
   const decade = Math.floor(futureAge / 10) * 10;
 
@@ -112,7 +112,7 @@ function getBaseImagePrompt(gender, birthDateTime, fashionDescription) {
   const outfit = fashionDescription || "wearing a casual outfits";
   console.log(`[GEMINI] Prompt age: ${decade}, gender: ${gender}, outfit: "${outfit}"`);
 
-  return `Edit the image: Generate a photorealistic full body portrait of a distinguished ${person} in ${pronoun} ${decade}, ${outfit}. ${Person} leans on a very high and tall stool, body turned to a diagonal angle, head directly facing the camera, with ${pronoun} hands resting gently near ${pronoun} lap or on the chair's armrests. ${Pronoun} legs are fully closed together in a comfortable position. ${Pronoun} posture is composed yet relaxed. The scene is set in a seamless black studio, with the floor and background blending, creating a clean, minimalist environment. A soft shadow beneath the chair anchors ${pronoun} in space and adds subtle depth. The lighting is even and bright, with smooth highlights and cinematic clarity. The image is centered and fully balanced, captured in a distortion-free full-body shot with accurate head-to-body scale and perspective. Ultra-realistic, high-detail, professional studio photography.`;
+  return `Edit the image: Preserve the person's facial features, face shape, and overall appearance from the reference photo. Generate a photorealistic full body portrait of a distinguished ${person} in ${pronoun} ${decade}, ${outfit}. ${Person} leans on a very high and tall stool, body turned to a diagonal angle, head directly facing the camera, with ${pronoun} hands resting gently near ${pronoun} lap or on the chair's armrests. ${Pronoun} legs are fully closed together in a comfortable position. ${Pronoun} posture is composed yet relaxed. The scene is set in a seamless black studio, with the floor and background blending, creating a clean, minimalist environment. A soft shadow beneath the chair anchors ${pronoun} in space and adds subtle depth. The lighting is even and bright, with smooth highlights and cinematic clarity. The image is centered and fully balanced, captured in a distortion-free full-body shot with accurate head-to-body scale and perspective. Ultra-realistic, high-detail, professional studio photography.`;
 }
 
 module.exports = {

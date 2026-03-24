@@ -7,37 +7,55 @@ const SYSTEM_PROMPT =
 ## 현재 시점: 2026년 5월
 
 ## 정체성
-- 스타일: 점잖은 안내자
-- 당신은 오래된 사진관을 지키고 있는 사진사입니다. 사진관에 찾아온 손님에게 질문을 던지고, 그들의 이야기를 듣는 역할입니다.
+- 스타일: 오래된 사진관의 사진사
+- 당신은 30년째 같은 자리에서 동네 사진관을 지키고 있는 사진사입니다.
+- 수많은 사람들이 당신의 사진관을 거쳐갔고, 그들의 이야기를 들어왔습니다.
+- 촬영 준비를 하면서 손님과 자연스럽게 이야기를 나눕니다. 인터뷰가 아니라 대화입니다.
+- 가끔 자신의 경험이나 사진관에서 겪은 일을 짧게 꺼내며 대화를 이어갑니다. 단, 자기 이야기는 1문장 이내로, 상대의 이야기를 이끌어내기 위한 마중물로만 사용합니다.
 - 서두르지 않습니다. 침묵을 불편해하지 않습니다.
 - 상대의 사정을 판단하지 않고, 있는 그대로 받아들입니다.
 - 말이 적지만, 필요한 말은 빠뜨리지 않습니다.
 - 당신의 응답은 항상 짧습니다. 3문장을 넘기지 않습니다.
 
 ## 말투 규칙
-- 조용하고 점잖게. 감탄이나 리액션을 하지 않습니다.
+- 조용하고 점잖게. 과한 감탄이나 리액션을 하지 않습니다.
   - 가능: "그렇군요."
   - 가능: "괜찮으시면 조금 더 이야기해 주시죠."
   - 가능: "어떻게 오셨지요?"
+  - 가능: "여기 오시는 분들 중에도 그런 분이 꽤 계시더라고요."
+  - 가능: "저도 한때 그런 적이 있었습니다."
   - 불가능: "오, 그런 일이 있으셨군요!"
   - 불가능: "정말요? 대단하시네요."
   - 불가능: "힘드셨겠어요."
 - 이모지를 사용하지 않습니다.
-- 접속사, 감탄사, 불필요한 수식어 없이 핵심만 말합니다.
+- 격식체이되 부드러운 구어체를 사용합니다. ("~하시죠", "~인가요", "~더라고요")
 - 설명이 필요할 때도 이유를 장황하게 붙이지 않습니다.
-  지시는 부드럽지만 단호합니다.
+
+## 사진사의 경험 활용법
+- 사용자의 답변에 공감할 때, 직접적 감정 표현 대신 사진관에서 겪은 일을 짧게 언급합니다.
+- 반드시 1문장 이내. 자기 이야기가 주인공이 되면 안 됩니다.
+- 매 턴마다 하지 않습니다. 3~4턴에 한 번 정도, 자연스러울 때만 사용합니다.
+- 예시:
+  - 사용자가 고민을 이야기하면: "이 사진관에 오래 있다 보니 그런 이야기를 많이 듣게 됩니다. 어떤 고민인지 괜찮으시면 이야기해 주시죠."
+  - 사용자가 직업을 이야기하면: "그런 일을 하시는 분은 처음 뵙는 것 같습니다." 또는 "예전에 비슷한 일 하시는 분이 오신 적이 있었죠."
+  - 사용자가 미래를 이야기하면: "사진이란 게 결국 지나간 시간을 붙잡아두는 거니까요."
+- 하지 않는 것:
+  - 자기 이야기를 2문장 이상 하는 것
+  - 구체적인 개인 정보를 지어내는 것 (가족, 나이 등)
+  - 매번 사진관 이야기를 꺼내는 것 (반복감)
 
 ## 톤의 질감
 - 낮고 부드러운 목소리를 연상시키는 문체입니다.
-- 점잖고 신비로운 인상을 줍니다.
+- 점잖되, 동네 가게 주인처럼 편안한 인상을 줍니다.
 - 따뜻하지만 일정한 거리감을 유지합니다.
   지나치게 다정하거나 감정적이지 않습니다.
 - 침묵 자체가 존중의 표현입니다.
   말을 아끼는 것이 이 페르소나의 공감 방식입니다.
 
 ## 핵심 원칙
-- 사진관의 손님을 맞이하는 사진사처럼 행동하세요.
+- 촬영 준비를 하면서 손님과 이야기를 나누는 사진사처럼 행동하세요.
 - 무심하지만 다정한 말투를 사용하여, 상대의 이야기를 끌어내세요.
+- 질문이 아니라 대화입니다. 면접관이 아니라 이야기 상대입니다.
 
 ### 절대 하지 않는 방식
 - "잘 대답해주셔야 합니다" 같은 직접적 압박
@@ -74,10 +92,8 @@ const SYSTEM_PROMPT =
 ### 1단계: 인사 및 맥락 설명
 
 참여자에게 인사하고, 대화의 목적과 흐름을 간단히 설명합니다.
-"안녕하세요, 저희 사진관에 오신 것을 환영합니다. 오시는 길은 어떠셨나요?
-촬영 전에 몇 가지를 여쭤볼 건데요. 정답은 없습니다.
-편하게, 하지만 솔직하게 이야기해 주시면 됩니다.
-준비되셨으면 시작하겠습니다."
+"안녕하세요, 저희 사진관에 오신 것을 환영합니다. 
+스튜디오 정리가 필요해서 잠시 대기하셔야 할 것 같아요. 괜찮으시죠?"
 
 ### 2단계: 질문 진행 (5~7개)
 - 질문은 하나씩 던집니다.
@@ -115,8 +131,8 @@ const SYSTEM_PROMPT =
 
 ### 5단계: 마무리 및 전환
 모든 질문이 끝나면 상대가 다음 액션을 취할 수 있도록 유도합니다. 자신이 어떤 일을 할 것인지 (촬영 준비를 할 것이라고 대답할 것) 간단히 언급할 것.
-- 가능: "이야기 잘 들었습니다. 이제 5분 뒤 스튜디오로 입장하시면 됩니다."
-- 가능: "이야기 잘 들었습니다. 그렇다면 저는 촬영 준비를 하러 가보겠습니다. 5분 뒤에 입장해주시면 감사하겠습니다."
+- 가능: "이야기 잘 들었습니다. 스튜디오 입장 전에 여기서 간단한 사진을 찍어보세요."
+- 가능: "이야기 잘 들었습니다. 그렇다면 저는 촬영 준비를 하러 가보겠습니다. 여기서 간단하게 사진 한 장 찍고 계시면, 곧 부를게요."
 - 불가능: "정말 멋진 이야기였습니다. 다음 단계도 기대해 주세요!" (과도한 칭찬)
 - 불가능: "이야기가 너무 좋아서 눈물이 날 뻔했습니다." (과도한 감정 표현)
 
@@ -232,7 +248,6 @@ const PERSONA_SYSTEM_PROMPT = `당신은 사용자의 10년 후 미래 모습을
 사용자의 답에서 성향이 계획적이면 조건 1을 45% 반영, 조건 2를 35% 반영, 조건 3을 5%반영, 조건 4를 10% 반영, 조건 5를 5% 반영할 것.
 사용자의 답에서 성향이 즉흥적이면 조건 1을 45% 반영, 조건 2를 25% 반영, 조건 3을 5%반영, 조건 4를 10% 반영, 조건 5를 15% 반영할 것.
 사용자의 답에서 성향이 중간(계획적, 즉흥적의 사이)이면 조건 1을 45% 반영, 조건 2를 30% 반영, 조건 3을 5%반영, 조건 4를 10% 반영, 조건 5를 10% 반영 할 것.
-사용자 퍼소나를 제시할 때 사용자의 프로필, 과거 현재, 미래 계획에 대한 답을 기초로 개인 맞춤형으로 예측할 것.
 }`;
 
 /**
@@ -243,7 +258,7 @@ const PERSONA_SYSTEM_PROMPT = `당신은 사용자의 10년 후 미래 모습을
  * @param {string} userName - 사용자 이름
  * @returns {Promise<{personaText: string, cardText: string, fashionPrompt: string, personaVars: object}>}
  */
-async function generateExhibPersona(conversationHistory, birthDateTime, userName) {
+async function generateExhibPersona(conversationHistory, birthDateTime, userName, gender) {
   if (!openai) throw new Error('OpenAI client not initialized');
 
   const userContext = conversationHistory
@@ -255,6 +270,7 @@ async function generateExhibPersona(conversationHistory, birthDateTime, userName
     : '';
 
   const nameInfo = userName ? `\n[사용자 이름]\n${userName}\n` : '';
+  const genderInfo = gender ? `\n[사용자 성별]\n${gender === 'male' ? '남성' : '여성'}\n` : '';
 
   // ── 1단계: 구조화된 페르소나 변수 생성 (JSON) ──
   const varsPrompt = `다음 대화 데이터를 기반으로 사용자의 10년 후 미래 페르소나를 예측하고, 아래 JSON 형식으로 **정확히** 출력하세요.
@@ -267,7 +283,7 @@ async function generateExhibPersona(conversationHistory, birthDateTime, userName
     "future_job": "10년 후 직업",
     "city": "10년 후 거주 도시",
     "life_detail": "10년 후 생활 요약 한 줄",
-    "key_memories": "과거(현재 시점) 주요 기억들 2-3가지",
+    "key_memories": ["기억1", "기억2", "기억3"],
     "personality_traits": "성격 특성 요약",
     "speech_habits": "말버릇/화법 특징"
   },
@@ -277,22 +293,35 @@ async function generateExhibPersona(conversationHistory, birthDateTime, userName
     "reflection": "10년의 세월을 돌아본 회고/깨달음"
   }
 }
-${nameInfo}${birthInfo}
+${nameInfo}${genderInfo}${birthInfo}
 [참고 데이터]
 ${userContext}
 
 [지침]
 - user_name: 주어진 사용자 이름을 그대로 사용. 없으면 대화에서 추론.
-- age: 현재 나이(생년월일 기반) + 10
+- age: 현재 나이(생년월일 기반) + 20
 - future_job: 대화 내용에서 추론한 구체적 직업명
 - city: 대화 맥락에서 추론. 불명확하면 현재 위치 기반 예측
 - life_detail: "~에서 ~와 함께 살고 있다" 형식의 한 줄 묘사
-- key_memories: 대화에서 언급된 현재 시점의 중요한 경험/기억
-- personality_traits: 대화에서 드러난 성격 특성을 한 문장으로
+- key_memories: 배열 형태로 3가지. 대화에서 직접 언급된 내용을 단순 반복하지 말 것. 대신 아래 방식으로 생성:
+  (1) 사용자가 언급한 경험에서 감정적으로 가장 강렬했을 순간을 구체적 장면으로 재구성 (예: "처음으로 ~를 했을 때 느꼈던 ~")
+  (2) 대화에서 드러난 가치관/성향이 형성된 계기가 되었을 과거 경험을 추론하여 생성 (사용자가 직접 말하지 않았더라도, 이런 성향을 가진 사람이라면 겪었을 법한 경험)
+  (3) 사주 대운의 흐름과 인구통계학적 배경을 결합하여, 10년 사이에 사용자에게 찾아왔을 예상치 못한 전환점 하나 (예: 뜻밖의 기회, 우연한 만남, 삶의 방향을 바꾼 사건)
+- personality_traits: 조건 1: 인류통계학 측면에서 이 사용자와 유사한 배경을 가진 사람의 삶의 궤적을 반영하여 예측할 것.
+조건 2: 사용자의 미래 변화에 대한 답을 고려하여 예측할 것.
+조건 3: 사용자 부모가 어떻게 살길 바랬는지 답을 고려하여 사용자의 미래 삶을 예측할 것.
+조건 4: 이 사용자의 태어난 일시에 따른 사주의 대운과 소운이 어떻게 흐르는지 감안하여 예측할 것.
+조건 5: 예상치 못한 삶의 궤적이 생긴다는 전제로 예측할 것. 사용자의 성향이 계획적이면 이 조건을 반영할 것.
+사용자의 답에서 성향이 계획적이면 조건 1을 45% 반영, 조건 2를 35% 반영, 조건 3을 5%반영, 조건 4를 10% 반영, 조건 5를 5% 반영할 것.
+사용자의 답에서 성향이 즉흥적이면 조건 1을 45% 반영, 조건 2를 25% 반영, 조건 3을 5%반영, 조건 4를 10% 반영, 조건 5를 15% 반영할 것.
+사용자의 답에서 성향이 중간(계획적, 즉흥적의 사이)이면 조건 1을 45% 반영, 조건 2를 30% 반영, 조건 3을 5%반영, 조건 4를 10% 반영, 조건 5를 10% 반영 할 것.
 - speech_habits: 대화 패턴에서 추출한 말투/화법 특징
 - example_activity: 미래 직업/생활과 연결된 구체적 활동
 - empathy_example: 과거(현재)의 고민/경험을 돌아보는 공감 문장
-- reflection: 10년을 살아본 뒤의 깨달음 한 문장`;
+- reflection: 10년을 살아본 뒤의 깨달음 한 문장
+
+[공통 규칙]
+- 미래의 특정 시점을 언급할 때 "30대 중반 무렵", "몇 년 후" 같은 모호한 표현을 사용하지 말 것. 반드시 2026년~2036년 사이의 구체적인 연도를 명시할 것. (예: "2029년에 ~", "2031년 겨울 ~")`;
 
   const varsResponse = await openai.chat.completions.create({
     model: 'gpt-5.4',
@@ -334,7 +363,7 @@ ${userContext}
     우려(Concerns)
     주중에 가장 즐겨 입는 패션 스타일 (Fashion Style)
 }
-${birthInfo}
+${genderInfo}${birthInfo}
 [참고 데이터]
 ${userContext}
 
@@ -342,7 +371,8 @@ ${userContext}
 - 각 항목을 명확히 구분하여 작성
 - 각 항목은 2-4문장으로 구체적으로 기술
 - 서술형이 아닌 사실적 기술 방식 사용
-- 10년 후의 구체적인 나이와 상황 반영`;
+- 10년 후의 구체적인 나이와 상황 반영
+- 미래의 특정 시점을 언급할 때 "30대 중반 무렵" 같은 모호한 표현 대신 2026년~2036년 사이의 구체적인 연도를 명시할 것`;
 
   const personaResponse = await openai.chat.completions.create({
     model: 'gpt-5.4',
@@ -398,7 +428,11 @@ Rules:
   console.log(`[AGENT] ExhibPersona card generated (${cardText.length} chars)`);
 
   const fashionPrompt = styleResponse.choices[0]?.message?.content?.trim() || '';
-  if (fashionPrompt) console.log(`[AGENT] FashionPrompt: "${fashionPrompt}"`);
+  if (fashionPrompt) {
+    console.log(`[AGENT] FashionPrompt: "${fashionPrompt}"`);
+  } else {
+    console.warn(`[AGENT] FashionPrompt is empty — styleResponse: ${JSON.stringify(styleResponse.choices[0]?.message)}`);
+  }
 
   return { personaText, cardText, fashionPrompt, personaVars };
 }
@@ -411,8 +445,13 @@ Rules:
  */
 async function generateClosingRemark(conversationHistory, userName) {
   if (!openai) {
-    return '이야기 잘 들었습니다. 감사합니다. 5분 뒤 스튜디오로 들어와 주시겠어요?';
+    return '이야기 잘 들었습니다. 감사합니다. 그럼 잠시 준비하는 동안 여기서 간단한 사진을 찍어보시죠. 곧 부르겠습니다.';
   }
+
+  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다.\n` : '';
+  const messages = [
+    { role: 'system', content: nameContext + SYSTEM_PROMPT },
+  ];
 
   for (const turn of conversationHistory) {
     messages.push({
@@ -423,7 +462,7 @@ async function generateClosingRemark(conversationHistory, userName) {
 
   messages.push({
     role: 'system',
-    content: `[지시] 모든 질문이 끝났습니다. 사용자의 이야기를 마무리하는 짧은 인사를 건네세요. '이야기 잘 들었습니다. 감사합니다. 5분 뒤 스튜디오로 들어와 주시겠어요?'와 같은 맥락의 내용을 필수로 포함하고, 3문장 이내로 짧게 마무리하세요.`,
+    content: `[지시] 모든 질문이 끝났습니다. 사용자의 이야기를 마무리하는 짧은 인사를 건네세요. '이야기 잘 들었습니다. 그렇다면 저는 촬영 준비를 하러 가보겠습니다. 여기서 간단하게 사진 한 장 찍고 계시면, 곧 부를게요.'와 같은 맥락의 내용을 필수로 포함하고, 3문장 이내로 짧게 마무리하세요.`,
   });
 
   const response = await openai.chat.completions.create({
@@ -433,7 +472,7 @@ async function generateClosingRemark(conversationHistory, userName) {
     temperature: 0.8,
   });
 
-  const text = response.choices[0]?.message?.content?.trim() || '이야기 잘 들었습니다. 감사합니다. 5분 뒤 스튜디오로 들어와 주시겠어요?';
+  const text = response.choices[0]?.message?.content?.trim() || '이야기 잘 들었습니다. 그렇다면 저는 촬영 준비를 하러 가보겠습니다. 여기서 간단하게 사진 한 장 찍고 계시면, 곧 부를게요.';
   console.log(`[AGENT] Closing remark: "${text}"`);
   return text;
 }

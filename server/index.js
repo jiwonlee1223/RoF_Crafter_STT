@@ -339,7 +339,9 @@ wss.on('connection', async (ws, req) => {
           } catch (err) {
             console.error('[AGENT] Closing remark failed:', err.message);
             // 실패해도 세션 종료는 진행
-            await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, userName);
+            await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, userName, userGender, (fp) => {
+              personaStylePrompt = fp;
+            });
           }
           break;
         }
@@ -372,7 +374,7 @@ wss.on('connection', async (ws, req) => {
       }
 
       case 'end_session': {
-        await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, userName, (fp) => {
+        await handleSessionComplete(sessionId, ws, loggedInUserId, birthDateTime, userName, userGender, (fp) => {
           personaStylePrompt = fp;
         });
         break;
@@ -382,7 +384,7 @@ wss.on('connection', async (ws, req) => {
       case 'generate_video': {
         const userId = msg.userId || loggedInUserId || sessionId;
         const gender = msg.gender || userGender || 'female';
-        console.log(`[VIDEO] generate_video request: userId=${userId}, gender=${gender}`);
+        console.log(`[VIDEO] generate_video request: userId=${userId}, gender=${gender}, personaStylePrompt=${personaStylePrompt ? `"${personaStylePrompt.substring(0, 60)}..."` : 'null'}`);
 
         try {
           if (!msg.fileBuffer) {
@@ -469,7 +471,8 @@ wss.on('connection', async (ws, req) => {
 
 const MIN_VOICE_DURATION_SEC = 4.6;
 
-async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userName, onFashionPrompt) {
+async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userName, gender, onFashionPrompt) {
+  console.log(`[SESSION] handleSessionComplete called — onFashionPrompt=${typeof onFashionPrompt}`);
   try {
     const combinedAudio = sessionManager.getAllAnswerAudio(sessionId);
     const audioDuration = sessionManager.getAllAnswerAudioDuration(sessionId);
@@ -502,23 +505,30 @@ async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userN
     ws.send(JSON.stringify({ type: 'session_complete', session: sessionData }));
     console.log(`[SESSION] Conversation saved: ${sessionId}`);
 
-    // 페르소나 생성은 비동기로 (클라이언트 응답 블로킹 없이)
     const history = sessionData.conversation || [];
-    generateAndSavePersona(docUserId, history, birthDateTime, userName, onFashionPrompt);
+    const genderForPersona = gender || 'female';
+    await generateAndSavePersona(docUserId, history, birthDateTime, userName, genderForPersona, onFashionPrompt);
+
+    ws.send(JSON.stringify({ type: 'persona_ready' }));
+    console.log(`[SESSION] persona_ready sent to client`);
   } catch (err) {
     console.error('[SESSION] Save failed:', err.message);
     ws.send(JSON.stringify({ type: 'error', message: 'Session save failed' }));
+    // 페르소나 생성 실패해도 비디오 생성은 허용
+    ws.send(JSON.stringify({ type: 'persona_ready' }));
   }
 }
 
-async function generateAndSavePersona(userId, conversationHistory, birthDateTime, userName, onFashionPrompt) {
+async function generateAndSavePersona(userId, conversationHistory, birthDateTime, userName, gender, onFashionPrompt) {
   try {
-    console.log(`[PERSONA] Generating exhib persona for: ${userId}`);
-    const { personaText, cardText, fashionPrompt, personaVars } = await agentService.generateExhibPersona(conversationHistory, birthDateTime, userName);
+    console.log(`[PERSONA] Generating exhib persona for: ${userId}, gender: ${gender}`);
+    const { personaText, cardText, fashionPrompt, personaVars } = await agentService.generateExhibPersona(conversationHistory, birthDateTime, userName, gender);
     await firebaseService.saveExhibPersona(userId, personaText, cardText, personaVars);
     if (fashionPrompt && onFashionPrompt) {
       onFashionPrompt(fashionPrompt);
       console.log(`[PERSONA] Fashion prompt saved for video: "${fashionPrompt}"`);
+    } else {
+      console.warn(`[PERSONA] Fashion prompt NOT applied — fashionPrompt=${fashionPrompt ? `"${fashionPrompt}"` : 'empty'}, onFashionPrompt=${typeof onFashionPrompt}`);
     }
     console.log(`[PERSONA] Exhib persona complete for: ${userId}`);
   } catch (err) {

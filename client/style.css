@@ -158,7 +158,13 @@ body {
   max-width: 300px;
   line-height: 1.5;
   opacity: 0.9;
-  min-height: 24px;
+  height: 4.5em;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.voice-status-text::-webkit-scrollbar {
+  display: none;
 }
 
 .voice-subtitle {
@@ -725,6 +731,30 @@ body {
 
 .btn-video-loading .material-symbols-outlined {
   opacity: 0.4;
+}
+
+/* btn-generate-video spinner */
+.btn-video-spinner {
+  display: none;
+}
+
+#btn-generate-video.btn-video-preparing .btn-video-icon {
+  display: none;
+}
+
+#btn-generate-video.btn-video-preparing .btn-video-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ── 공통 키프레임 ── */
