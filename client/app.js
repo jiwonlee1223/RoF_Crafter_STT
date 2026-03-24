@@ -409,8 +409,8 @@
       if (!res.ok) throw new Error('TTS 요청 실패: ' + res.status);
 
       const reader = res.body.getReader();
-      const audioStartAt = ttsAudioCtx.currentTime;
-      let scheduledTime = audioStartAt;
+      let audioStartAt = -1;
+      let scheduledTime = ttsAudioCtx.currentTime;
       let chunkCount = 0;
       let lastSource = null;
       let leftover = null;
@@ -419,15 +419,17 @@
       // rAF loop: sync text reveal with audio playback
       const syncText = () => {
         if (!isSpeaking) return;
-        const totalDur = scheduledTime - audioStartAt;
-        if (totalDur > 0) {
-          const elapsed = ttsAudioCtx.currentTime - audioStartAt;
-          const progress = Math.min(elapsed / totalDur, 1);
-          const target = Math.ceil(progress * text.length);
-          if (target > shownLen) {
-            voiceStatusText.textContent = text.slice(0, target);
-            voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
-            shownLen = target;
+        if (audioStartAt >= 0) {
+          const totalDur = scheduledTime - audioStartAt;
+          if (totalDur > 0) {
+            const elapsed = ttsAudioCtx.currentTime - audioStartAt;
+            const progress = Math.min(elapsed / totalDur, 1);
+            const target = Math.ceil(progress * text.length);
+            if (target > shownLen) {
+              voiceStatusText.textContent = text.slice(0, target);
+              voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
+              shownLen = target;
+            }
           }
         }
         typewriterTimer = requestAnimationFrame(syncText);
@@ -461,6 +463,12 @@
 
         const buf = ttsAudioCtx.createBuffer(1, sampleCount, TTS_SAMPLE_RATE);
         buf.getChannelData(0).set(float32);
+
+        // 첫 청크 도착 시 기준 시간 설정
+        if (audioStartAt < 0) {
+          audioStartAt = ttsAudioCtx.currentTime;
+          scheduledTime = audioStartAt;
+        }
 
         const src = ttsAudioCtx.createBufferSource();
         src.buffer = buf;
