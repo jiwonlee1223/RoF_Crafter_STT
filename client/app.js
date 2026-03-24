@@ -267,7 +267,8 @@
 
       case 'transcript_rejected':
         liveTranscriptSection.style.display = 'none';
-        setMicReady();
+        addChatBubble('agent', '음, 잠시만요. 잘 들리지 않아요. 조금만 크게 이야기해주시겠어요?');
+        speakThenReady('음, 잠시만요. 잘 들리지 않아요. 조금만 크게 이야기해주시겠어요?');
         break;
 
       case 'video_status': {
