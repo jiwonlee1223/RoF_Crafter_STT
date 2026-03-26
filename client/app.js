@@ -271,6 +271,15 @@
       case 'persona_ready':
         personaReady = true;
         updateVideoButtonState();
+        stopWaitingTypingAnimation();
+        startWaitingTypingAnimation('촬영을 준비하고 있어요 ');
+        // 비디오 섹션 보이기 & 자동으로 카메라 열기
+        if (videoSection) {
+          videoSection.style.visibility = 'visible';
+        }
+        if (btnOpenCamera) {
+          btnOpenCamera.click();
+        }
         break;
 
       case 'transcript_rejected':
@@ -293,7 +302,6 @@
       case 'video_progress': {
         const pct = msg.total > 0 ? Math.round((msg.finished / msg.total) * 100) : 0;
         videoProgressFill.style.width = `${pct}%`;
-        videoStatusEl.querySelector('.video-status-text').textContent = `잠시만 기다려 주세요....`;
         break;
       }
 
@@ -409,8 +417,8 @@
       if (!res.ok) throw new Error('TTS 요청 실패: ' + res.status);
 
       const reader = res.body.getReader();
-      let audioStartAt = -1;
-      let scheduledTime = ttsAudioCtx.currentTime;
+      const audioStartAt = ttsAudioCtx.currentTime;
+      let scheduledTime = audioStartAt;
       let chunkCount = 0;
       let lastSource = null;
       let leftover = null;
@@ -419,17 +427,15 @@
       // rAF loop: sync text reveal with audio playback
       const syncText = () => {
         if (!isSpeaking) return;
-        if (audioStartAt >= 0) {
-          const totalDur = scheduledTime - audioStartAt;
-          if (totalDur > 0) {
-            const elapsed = ttsAudioCtx.currentTime - audioStartAt;
-            const progress = Math.min(elapsed / totalDur, 1);
-            const target = Math.ceil(progress * text.length);
-            if (target > shownLen) {
-              voiceStatusText.textContent = text.slice(0, target);
-              voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
-              shownLen = target;
-            }
+        const totalDur = scheduledTime - audioStartAt;
+        if (totalDur > 0) {
+          const elapsed = ttsAudioCtx.currentTime - audioStartAt;
+          const progress = Math.min(elapsed / totalDur, 1);
+          const target = Math.ceil(progress * text.length);
+          if (target > shownLen) {
+            voiceStatusText.textContent = text.slice(0, target);
+            voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
+            shownLen = target;
           }
         }
         typewriterTimer = requestAnimationFrame(syncText);
@@ -463,12 +469,6 @@
 
         const buf = ttsAudioCtx.createBuffer(1, sampleCount, TTS_SAMPLE_RATE);
         buf.getChannelData(0).set(float32);
-
-        // 첫 청크 도착 시 기준 시간 설정
-        if (audioStartAt < 0) {
-          audioStartAt = ttsAudioCtx.currentTime;
-          scheduledTime = audioStartAt;
-        }
 
         const src = ttsAudioCtx.createBufferSource();
         src.buffer = buf;
@@ -703,16 +703,41 @@
   }
 
   // --- Session Complete ---
+  // --- Waiting typing animation ---
+  let waitingTypingTimer = null;
+  function startWaitingTypingAnimation(baseText) {
+    const text = baseText || '조금만 기다려주세요 ';
+    const maxDots = 3;
+    let dotCount = 0;
+    stopWaitingTypingAnimation();
+    function tick() {
+      dotCount = (dotCount % (maxDots + 1));
+      voiceStatusText.textContent = text + '.'.repeat(dotCount);
+      dotCount++;
+      waitingTypingTimer = setTimeout(tick, 500);
+    }
+    tick();
+  }
+  function stopWaitingTypingAnimation() {
+    if (waitingTypingTimer) {
+      clearTimeout(waitingTypingTimer);
+      waitingTypingTimer = null;
+    }
+  }
+
   function showSessionComplete(sessionData) {
     btnStart.disabled = true;
     micLabel.textContent = '';
     btnEndSession.style.display = 'none';
     setOrbState('idle');
-    voiceStatusText.textContent = '아래 촬영 버튼을 눌러주세요.';
     voiceSubtitle.textContent = '';
+
+    // 페르소나 준비 전: 대기 애니메이션 표시
+    startWaitingTypingAnimation();
 
     if (videoSection) {
       videoSection.style.display = 'block';
+      videoSection.style.visibility = 'hidden'; // 페르소나 준비 전까지 숨김
       videoResult.style.display = 'none';
       videoStatusEl.style.display = 'none';
     }
@@ -811,6 +836,12 @@
         }
         stopCamera();
         cameraModal.style.display = 'none';
+        stopWaitingTypingAnimation();
+
+        // 페르소나 준비 완료 상태면 자동으로 comfy 호출
+        if (personaReady && capturedImageFile && ws && ws.readyState === WebSocket.OPEN) {
+          autoTriggerGenerateVideo();
+        }
       }, 'image/jpeg', 0.9);
     });
   }
@@ -820,6 +851,28 @@
       stopCamera();
       cameraModal.style.display = 'none';
     });
+  }
+
+  // --- Auto-trigger video generation ---
+  async function autoTriggerGenerateVideo() {
+    const file = capturedImageFile;
+    if (!file || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+    if (btnGenerateVideo) {
+      btnGenerateVideo.disabled = true;
+      btnGenerateVideo.classList.add('btn-video-loading');
+    }
+    videoResult.style.display = 'none';
+    videoProgressFill.style.width = '0%';
+
+    const arrayBuffer = await file.arrayBuffer();
+    ws.send(JSON.stringify({
+      type: 'generate_video',
+      userId: loggedInUserId || sessionId,
+      gender: userProfile.gender,
+      fileBuffer: Array.from(new Uint8Array(arrayBuffer)),
+    }));
+    console.log('[CLIENT] Auto-triggered generate_video');
   }
 
   // --- Video Generation ---
