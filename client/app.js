@@ -32,6 +32,7 @@
   const btnEndSession = document.getElementById('btn-end-session');
 
   // Voice UI DOM
+  const voiceMain = document.querySelector('.voice-main');
   const orbCanvas = document.getElementById('orb-canvas');
   const orbGlow = document.getElementById('orb-glow');
   const voiceStatusText = document.getElementById('voice-status-text');
@@ -268,11 +269,15 @@
         showSessionComplete(msg.session);
         break;
 
+      case 'conversation_summary':
+        console.log('[CLIENT] conversation_summary received:', msg.text?.slice(0, 60));
+        startSummaryTypingAnimation(msg.text);
+        break;
+
       case 'persona_ready':
         personaReady = true;
         updateVideoButtonState();
-        stopWaitingTypingAnimation();
-        startWaitingTypingAnimation('촬영을 준비하고 있어요 ');
+        restoreSummary();
         // 비디오 섹션 보이기 & 자동으로 카메라 열기
         if (videoSection) {
           videoSection.style.visibility = 'visible';
@@ -310,7 +315,7 @@
         videoResult.style.display = 'block';
         btnGenerateVideo.disabled = false;
         btnGenerateVideo.classList.remove('btn-video-loading');
-        voiceStatusText.textContent = 'RoF Studio에서 기다리고 있어요';
+        restoreSummary();
         break;
 
       case 'error':
@@ -756,25 +761,54 @@
   }
 
   // --- Session Complete ---
-  // --- Waiting typing animation ---
-  let waitingTypingTimer = null;
-  function startWaitingTypingAnimation(baseText) {
-    const text = baseText || '자리를 이동하지 마시고 조금만 기다려주세요 ';
-    const maxDots = 3;
-    let dotCount = 0;
-    stopWaitingTypingAnimation();
+  let summaryTypingTimer = null;
+  let savedSummaryHtml = null;
+  function startSummaryTypingAnimation(fullText) {
+    if (summaryTypingTimer) {
+      clearTimeout(summaryTypingTimer);
+      summaryTypingTimer = null;
+    }
+    // summary 모드: 오브 흐리게 + 텍스트 오버랩
+    voiceMain.classList.add('summary-mode');
+
+    // 문장 단위 줄바꿈 처리: 마침표+공백 → 마침표+줄바꿈, 기존 줄바꿈 유지
+    const formatted = fullText.replace(/([.。])\s+/g, '$1\n');
+
+    // 첫 줄(첫 번째 줄바꿈 기준)을 bold 처리
+    const firstBreak = formatted.indexOf('\n');
+    const boldEnd = firstBreak >= 0 ? firstBreak : formatted.length;
+
+    let charIndex = 0;
+    voiceStatusText.innerHTML = '';
     function tick() {
-      dotCount = (dotCount % (maxDots + 1));
-      voiceStatusText.textContent = text + '.'.repeat(dotCount);
-      dotCount++;
-      waitingTypingTimer = setTimeout(tick, 500);
+      if (charIndex <= formatted.length) {
+        const visible = formatted.slice(0, charIndex);
+        if (charIndex <= boldEnd) {
+          voiceStatusText.innerHTML = '<strong>' + visible.replace(/\n/g, '<br>') + '</strong>';
+        } else {
+          voiceStatusText.innerHTML = '<strong>' + formatted.slice(0, boldEnd) + '</strong>' + visible.slice(boldEnd).replace(/\n/g, '<br>');
+        }
+        charIndex++;
+        summaryTypingTimer = setTimeout(tick, 80);
+      } else {
+        // 타이핑 완료 — 최종 HTML 저장
+        savedSummaryHtml = voiceStatusText.innerHTML;
+      }
     }
     tick();
   }
-  function stopWaitingTypingAnimation() {
-    if (waitingTypingTimer) {
-      clearTimeout(waitingTypingTimer);
-      waitingTypingTimer = null;
+
+  function stopSummaryTypingAnimation() {
+    if (summaryTypingTimer) {
+      clearTimeout(summaryTypingTimer);
+      summaryTypingTimer = null;
+    }
+  }
+
+  function restoreSummary() {
+    if (savedSummaryHtml) {
+      voiceStatusText.innerHTML = savedSummaryHtml;
+      voiceMain.classList.add('summary-mode');
     }
   }
 
@@ -785,8 +819,7 @@
     setOrbState('idle');
     voiceSubtitle.textContent = '';
 
-    // 페르소나 준비 전: 대기 애니메이션 표시
-    startWaitingTypingAnimation();
+    voiceStatusText.textContent = '';
 
     if (videoSection) {
       videoSection.style.display = 'block';
@@ -889,7 +922,8 @@
         }
         stopCamera();
         cameraModal.style.display = 'none';
-        stopWaitingTypingAnimation();
+        stopSummaryTypingAnimation();
+        restoreSummary();
 
         // 페르소나 준비 완료 상태면 자동으로 comfy 호출
         if (personaReady && capturedImageFile && ws && ws.readyState === WebSocket.OPEN) {

@@ -486,4 +486,57 @@ async function generateClosingRemark(conversationHistory, userName) {
   return text;
 }
 
-module.exports = { init, generateResponse, generateGreeting, generateClosingRemark, generateExhibPersona, SYSTEM_PROMPT };
+/**
+ * 대화 이력을 기반으로 사용자 대기 화면에 보여줄 대화 요약을 생성한다.
+ * @param {Array} conversationHistory - [{role: 'agent'|'user', text: string}]
+ * @param {string} userName - 사용자 이름
+ * @returns {Promise<string>}
+ */
+async function generateConversationSummary(conversationHistory, userName) {
+  if (!openai) {
+    return '잠시만 기다려주세요.';
+  }
+
+  const userContext = conversationHistory
+    .map(t => `${t.role === 'agent' ? '사진사' : '손님'}: ${t.text}`)
+    .join('\n');
+
+  const nameInfo = userName ? `손님의 이름은 "${userName}"입니다.\n` : '';
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-5.4',
+    messages: [
+      {
+        role: 'system',
+        content: `당신은 사진관의 어시스턴트입니다.
+사진사와 손님 사이의 대화 기록을 읽고, 손님이 촬영 대기 중에 화면에서 볼 메시지를 작성해주세요.
+
+구조:
+1. 첫 줄: 반드시 "자리를 이동하지 마시고 조금만 기다려주세요."로 시작합니다.
+2. 감사 인사: 손님의 이름을 부르며, 짧은 시간에 이야기를 나눠준 것에 대한 간단한 감사. 1문장.
+3. 사진관 소개: "저희 사진관에서는 손님이 사진을 촬영하는 그 순간뿐만 아니라, 손님의 먼 미래에도 지금의 경험이 유지될 수 있도록 노력합니다." 이 취지의 문장. 대화 내용에 맞게 자연스럽게 변형 가능. 1문장.
+4. 질문 유도: "혹시, 이런 상상 해보신 적 있나요?" 와 같은 전환 후, "만약 내가 10년 뒤 미래의 나를 만난다면, 어떤 질문들을 할 수 있을까?" 라는 질문을 던집니다. 대화에서 나온 손님의 고민, 꿈, 가치관 등을 반영하여 질문을 구체화하세요.
+5. 마무리: "이런 고민을 해보는 시간을 가져도 좋을 것 같네요." 와 같이 부드럽게 마무리. 1문장.
+
+톤:
+- 담백하고 차분하게. 감성적이거나 과한 감탄 금지.
+- 존댓말, 편안한 구어체.
+- 이모지 사용 금지.
+- 전체 5~6문장.
+- 문장 사이에 줄바꿈을 넣어주세요.`,
+      },
+      {
+        role: 'user',
+        content: `${nameInfo}[대화 기록]\n${userContext}\n\n위 대화를 바탕으로 대기 화면 메시지를 작성해주세요.`,
+      },
+    ],
+    max_completion_tokens: 400,
+    temperature: 0.9,
+  });
+
+  const text = response.choices[0]?.message?.content?.trim() || '자리를 이동하지 마시고 조금만 기다려주세요.';
+  console.log(`[AGENT] ConversationSummary: "${text}"`);
+  return text;
+}
+
+module.exports = { init, generateResponse, generateGreeting, generateClosingRemark, generateExhibPersona, generateConversationSummary, SYSTEM_PROMPT };

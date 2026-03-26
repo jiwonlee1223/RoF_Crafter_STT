@@ -491,7 +491,23 @@ async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userN
 
     const history = sessionData.conversation || [];
     const genderForPersona = gender || 'female';
-    await generateAndSavePersona(docUserId, history, birthDateTime, userName, genderForPersona, onFashionPrompt);
+
+    // 대화 요약 생성 (페르소나 생성과 병렬 실행)
+    const summaryPromise = agentService.generateConversationSummary(history, userName)
+      .then(summary => {
+        console.log(`[SESSION] conversation_summary generated: "${summary.slice(0, 80)}..."`);
+        ws.send(JSON.stringify({ type: 'conversation_summary', text: summary }));
+        console.log(`[SESSION] conversation_summary sent`);
+      })
+      .catch(err => {
+        console.error('[SESSION] Summary generation failed:', err.message, err.stack);
+        ws.send(JSON.stringify({ type: 'conversation_summary', text: '자리를 이동하지 마시고 조금만 기다려주세요.\n촬영 준비를 하고 있습니다.' }));
+      });
+
+    await Promise.all([
+      generateAndSavePersona(docUserId, history, birthDateTime, userName, genderForPersona, onFashionPrompt),
+      summaryPromise,
+    ]);
 
     ws.send(JSON.stringify({ type: 'persona_ready' }));
     console.log(`[SESSION] persona_ready sent to client`);
