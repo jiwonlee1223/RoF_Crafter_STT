@@ -71,4 +71,56 @@ function createLiveSession(onTranscript, onError) {
   };
 }
 
-module.exports = { init, createLiveSession };
+// ── Pre-recorded (batch) transcription ──
+function createWavBuffer(pcmBuffer) {
+  const sampleRate = 16000;
+  const channels = 1;
+  const bitsPerSample = 16;
+  const byteRate = sampleRate * channels * (bitsPerSample / 8);
+  const blockAlign = channels * (bitsPerSample / 8);
+  const dataSize = pcmBuffer.length;
+
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + dataSize, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  return Buffer.concat([header, pcmBuffer]);
+}
+
+async function transcribePreRecorded(pcmBuffer) {
+  if (!deepgramClient) throw new Error('Deepgram client not initialized');
+
+  const wavBuffer = createWavBuffer(pcmBuffer);
+  console.log(`[DEEPGRAM] Pre-recorded transcription: ${(wavBuffer.length / 1024).toFixed(1)}KB WAV`);
+
+  const { result, error } = await deepgramClient.listen.prerecorded.transcribeFile(
+    wavBuffer,
+    {
+      model: 'nova-2',
+      language: 'ko',
+      smart_format: true,
+    }
+  );
+
+  if (error) throw error;
+
+  const alt = result?.results?.channels?.[0]?.alternatives?.[0];
+  const text = alt?.transcript || '';
+  const confidence = alt?.confidence || 0;
+  console.log(`[DEEPGRAM] Pre-recorded result: "${text}" (confidence: ${confidence})`);
+
+  return { text, confidence };
+}
+
+module.exports = { init, createLiveSession, transcribePreRecorded };

@@ -200,11 +200,9 @@ wss.on('connection', async (ws, req) => {
 
   console.log(`[WS] New session: ${sessionId}, userId: ${loggedInUserId || '(anonymous)'}, name: ${userName || '-'}, gender: ${userGender}, birth: ${birthDateTime || '-'}`);
 
-  let dgSession = null;
   let audioStartTime = null;
   let finalTranscript = '';
   let lastConfidence = 0;
-  let lastLatency = 0;
   let personaStylePrompt = null;
 
   // 첫 인사 — questions[0]을 참고, 사용자 이름 반영
@@ -236,7 +234,6 @@ wss.on('connection', async (ws, req) => {
       }
       const chunk = Buffer.from(data);
       sessionManager.appendAudioChunk(sessionId, chunk);
-      if (dgSession) dgSession.send(chunk);
       return;
     }
 
@@ -248,57 +245,44 @@ wss.on('connection', async (ws, req) => {
         console.log('[REC] start_recording received');
         finalTranscript = '';
         lastConfidence = 0;
-        lastLatency = 0;
         audioStartTime = null;
-
-        dgSession = deepgramHandler.createLiveSession(
-          (text, isFinal, confidence, latency) => {
-            if (isFinal) {
-              finalTranscript += (finalTranscript ? ' ' : '') + text;
-              lastConfidence = confidence;
-              lastLatency = latency;
-            }
-            ws.send(JSON.stringify({
-              type: isFinal ? 'transcript_partial_final' : 'transcript_interim',
-              text,
-              full_text: finalTranscript,
-              confidence,
-              latency_ms: latency,
-              is_final: isFinal,
-            }));
-          },
-          (err) => {
-            console.error('[DG] Session error:', err.message);
-            ws.send(JSON.stringify({ type: 'error', message: err.message }));
-          }
-        );
+        sessionManager.clearAudioChunks(sessionId);
         break;
       }
 
       case 'stop_recording': {
-        console.log(`[REC] stop_recording received, current finalTranscript="${finalTranscript}"`);
+        console.log('[REC] stop_recording received, transcribing recorded audio...');
 
-        // Deepgram이 마지막 is_final 이벤트를 보낼 시간을 확보한 후 종료
-        setTimeout(() => {
-          console.log(`[REC] After delay, finalTranscript="${finalTranscript}"`);
+        const audioDuration = audioStartTime
+          ? (Date.now() - audioStartTime) / 1000 : 0;
+        const pcmBuffer = sessionManager.getAudioBuffer(sessionId);
 
-          if (dgSession) {
-            dgSession.close();
-            dgSession = null;
-          }
+        if (!pcmBuffer || pcmBuffer.length === 0) {
+          console.log('[REC] No audio data recorded');
+          ws.send(JSON.stringify({ type: 'transcript_rejected' }));
+          break;
+        }
+
+        try {
+          const { text, confidence } = await deepgramHandler.transcribePreRecorded(pcmBuffer);
+          finalTranscript = text;
+          lastConfidence = confidence;
 
           if (finalTranscript && !isHallucination(finalTranscript)) {
             ws.send(JSON.stringify({
               type: 'transcript_final',
               text: finalTranscript,
               confidence: lastConfidence,
-              latency_ms: lastLatency,
+              audio_duration_sec: audioDuration,
             }));
           } else {
             console.log('[REC] Empty or hallucinated transcript, resetting mic');
             ws.send(JSON.stringify({ type: 'transcript_rejected' }));
           }
-        }, 1000);
+        } catch (err) {
+          console.error('[REC] Pre-recorded transcription failed:', err.message);
+          ws.send(JSON.stringify({ type: 'transcript_rejected' }));
+        }
         break;
       }
 
@@ -311,7 +295,7 @@ wss.on('connection', async (ws, req) => {
 
         sessionManager.addTurn(sessionId, 'user', userText, {
           engine: 'deepgram',
-          latency_ms: msg.latency_ms || lastLatency,
+          latency_ms: msg.latency_ms || 0,
           confidence: msg.confidence || lastConfidence,
           audio_duration_sec: msg.audio_duration_sec || audioDuration,
         });
@@ -465,7 +449,7 @@ wss.on('connection', async (ws, req) => {
 
   ws.on('close', () => {
     console.log(`[WS] Session closed: ${sessionId}`);
-    if (dgSession) { dgSession.close(); dgSession = null; }
+    console.log(`[WS] Cleaning up session: ${sessionId}`);
   });
 });
 

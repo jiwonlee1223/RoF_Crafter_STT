@@ -660,7 +660,7 @@
       btnStart.classList.add('recording');
       micLabel.textContent = '';
       liveTranscript.textContent = '';
-      liveTranscriptSection.style.display = 'block';
+      liveTranscriptSection.style.display = 'none';
       setOrbState('recording');
 
       // Feed mic analyser data to orb
@@ -759,7 +759,7 @@
   // --- Waiting typing animation ---
   let waitingTypingTimer = null;
   function startWaitingTypingAnimation(baseText) {
-    const text = baseText || '조금만 기다려주세요 ';
+    const text = baseText || '자리를 이동하지 마시고 조금만 기다려주세요 ';
     const maxDots = 3;
     let dotCount = 0;
     stopWaitingTypingAnimation();

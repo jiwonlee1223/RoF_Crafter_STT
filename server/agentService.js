@@ -20,8 +20,7 @@ const SYSTEM_PROMPT =
 ## 말투 규칙
 - 조용하고 점잖게. 과한 감탄이나 리액션을 하지 않습니다.
   - 가능: "그렇군요."
-  - 가능: "괜찮으시면 조금 더 이야기해 주시죠."
-  - 가능: "어떻게 오셨지요?"
+  - 가능: "그런 고민을 할 시기네요."
   - 가능: "여기 오시는 분들 중에도 그런 분이 꽤 계시더라고요."
   - 가능: "저도 한때 그런 적이 있었습니다."
   - 불가능: "오, 그런 일이 있으셨군요!"
@@ -194,14 +193,24 @@ async function generateResponse(conversationHistory, referenceQuestion, userName
 
   messages.push({
     role: 'system',
-    content: `[참고 질문] 다음 질문의 의도를 반영하여 사용자에게 자연스럽게 질문하세요: "${referenceQuestion}"`,
+    content: `[지시] 아래 3단계 구조로 응답하세요.
+
+1단계 - 공감: 사용자의 마지막 답변에 대해 짧게 공감하거나 수용합니다. 1문장 이내. (예: "그렇군요.", "그럴 수 있겠지요.", "그런 고민을 할 시기네요.")
+
+2단계 - 브릿지 발화: 사용자의 답변 내용과 다음 질문 주제를 자연스럽게 연결하는 전환 문장입니다. 1~2문장 이내. 사용자가 말한 키워드나 맥락을 활용하여 다음 질문의 주제로 화제를 부드럽게 옮기세요.
+- 예: 사용자가 이직 고민을 말했고 다음 질문이 미래 변화에 관한 것이라면 → "이직을 고민하고 계신 걸 보니, 앞으로의 변화가 참 중요할 것 같습니다."
+- 예: 사용자가 보람찼던 순간을 말했고 다음 질문이 고민에 관한 것이라면 → "그런 순간이 있으셨군요. 좋은 일이 있으면 고민도 따라오기 마련이죠."
+
+3단계 - 질문: 아래 참고 질문을 자연스러운 대화체로 전달하세요. 질문의 의도를 재해석하거나 변형하지 마세요.
+
+[참고 질문] "${referenceQuestion}"`,
   });
 
   const startTime = Date.now();
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages,
-    max_tokens: 150,
+    max_tokens: 250,
     temperature: 0.8,
   });
 
@@ -226,7 +235,7 @@ async function generateGreeting(referenceQuestion, userName) {
       { role: 'system', content: nameContext + SYSTEM_PROMPT },
       {
         role: 'system',
-        content: `[참고 질문] 대화를 시작하세요. 다음 질문의 의도를 반영하여 자연스럽게 질문하세요: "${referenceQuestion}"`,
+        content: `[지시] 대화를 시작하세요. 인사 후, 아래 참고 질문을 자연스러운 대화체로 이어서 물어보세요. 질문의 의도를 재해석하지 말고 그대로 전달하세요.\n[참고 질문] "${referenceQuestion}"`,
       },
     ],
     max_tokens: 100,
