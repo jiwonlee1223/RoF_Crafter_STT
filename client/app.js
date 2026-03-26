@@ -417,50 +417,48 @@
       if (!res.ok) throw new Error('TTS 요청 실패: ' + res.status);
 
       const reader = res.body.getReader();
-      const audioStartAt = ttsAudioCtx.currentTime;
-      let scheduledTime = audioStartAt;
+      const decoder = new TextDecoder();
+      let audioStartAt = null;  // set on first audio chunk
+      let scheduledTime = 0;
       let chunkCount = 0;
       let lastSource = null;
-      let leftover = null;
       let shownLen = 0;
+      let ndjsonBuffer = '';
 
-      // rAF loop: sync text reveal with audio playback
-      const syncText = () => {
-        if (!isSpeaking) return;
-        const totalDur = scheduledTime - audioStartAt;
-        if (totalDur > 0) {
-          const elapsed = ttsAudioCtx.currentTime - audioStartAt;
-          const progress = Math.min(elapsed / totalDur, 1);
-          const target = Math.ceil(progress * text.length);
-          if (target > shownLen) {
-            voiceStatusText.textContent = text.slice(0, target);
-            voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
-            shownLen = target;
+      // Character-level timestamps from ElevenLabs alignment data
+      const charTimestamps = []; // [{ startTime }]
+
+      // Process a single NDJSON line: extract alignment + schedule audio
+      const processLine = (line) => {
+        if (!line.trim()) return;
+        let parsed;
+        try { parsed = JSON.parse(line); }
+        catch (e) { console.warn('[TTS] NDJSON parse error:', e.message); return; }
+
+        // Collect character-level alignment
+        if (parsed.alignment) {
+          const chars = parsed.alignment.characters || [];
+          const starts = parsed.alignment.character_start_times_seconds || [];
+          for (let i = 0; i < chars.length; i++) {
+            charTimestamps.push({ startTime: starts[i] || 0 });
           }
         }
-        typewriterTimer = requestAnimationFrame(syncText);
-      };
-      typewriterTimer = requestAnimationFrame(syncText);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        let pcm = value;
-        if (leftover) {
-          const merged = new Uint8Array(leftover.length + pcm.length);
-          merged.set(leftover);
-          merged.set(pcm, leftover.length);
-          pcm = merged;
-          leftover = null;
+        // Decode base64 audio → PCM → AudioBuffer
+        if (!parsed.audio_base64) return;
+        // Capture audioStartAt on first audio chunk (avoids fetch delay offset)
+        if (audioStartAt === null) {
+          audioStartAt = ttsAudioCtx.currentTime;
+          scheduledTime = audioStartAt;
         }
-        if (pcm.length % 2 !== 0) {
-          leftover = pcm.slice(-1);
-          pcm = pcm.slice(0, -1);
-        }
-        if (pcm.length === 0) continue;
+        const binaryStr = atob(parsed.audio_base64);
+        const usableLen = binaryStr.length - (binaryStr.length % 2);
+        if (usableLen < 2) return;
 
-        const sampleCount = pcm.length / 2;
+        const pcm = new Uint8Array(usableLen);
+        for (let i = 0; i < usableLen; i++) pcm[i] = binaryStr.charCodeAt(i);
+
+        const sampleCount = usableLen / 2;
         const float32 = new Float32Array(sampleCount);
         const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
         for (let i = 0; i < sampleCount; i++) {
@@ -477,8 +475,63 @@
         scheduledTime += buf.duration;
         lastSource = src;
         chunkCount++;
+      };
+
+      // rAF loop: sync text reveal with character-level timestamps
+      const syncText = () => {
+        if (!isSpeaking) return;
+        if (audioStartAt === null) {
+          typewriterTimer = requestAnimationFrame(syncText);
+          return;
+        }
+        const elapsed = ttsAudioCtx.currentTime - audioStartAt;
+
+        if (charTimestamps.length > 0) {
+          // Word-level sync using ElevenLabs alignment
+          let visibleLen = 0;
+          for (let i = 0; i < charTimestamps.length; i++) {
+            if (elapsed >= charTimestamps[i].startTime) visibleLen = i + 1;
+            else break;
+          }
+          const target = Math.min(visibleLen, text.length);
+          if (target > shownLen) {
+            voiceStatusText.textContent = text.slice(0, target);
+            voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
+            shownLen = target;
+          }
+        } else {
+          // Fallback: proportional sync (before alignment data arrives)
+          const totalDur = scheduledTime - audioStartAt;
+          if (totalDur > 0) {
+            const progress = Math.min(elapsed / totalDur, 1);
+            const target = Math.ceil(progress * text.length);
+            if (target > shownLen) {
+              voiceStatusText.textContent = text.slice(0, target);
+              voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
+              shownLen = target;
+            }
+          }
+        }
+        typewriterTimer = requestAnimationFrame(syncText);
+      };
+      typewriterTimer = requestAnimationFrame(syncText);
+
+      // Read NDJSON stream (each line: { audio_base64, alignment })
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          ndjsonBuffer += decoder.decode();
+          break;
+        }
+        ndjsonBuffer += decoder.decode(value, { stream: true });
+
+        const lines = ndjsonBuffer.split('\n');
+        ndjsonBuffer = lines.pop();
+        for (const line of lines) processLine(line);
       }
-      console.log('[TTS] stream done, chunks:', chunkCount, 'scheduledEnd:', scheduledTime);
+      // Process any remaining data in buffer
+      if (ndjsonBuffer.trim()) processLine(ndjsonBuffer);
+      console.log('[TTS] stream done, chunks:', chunkCount, 'duration:', scheduledTime - audioStartAt, 'alignments:', charTimestamps.length);
 
       const FADE_OUT_SEC = 0.08;
       gainNode.gain.setValueAtTime(1, Math.max(0, scheduledTime - FADE_OUT_SEC));

@@ -18,7 +18,7 @@ async function streamTTS(text, res) {
     throw new Error('ELEVENLABS_API_KEY가 설정되지 않았습니다');
   }
 
-  const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream?output_format=pcm_${TTS_SAMPLE_RATE}`;
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream/with-timestamps?output_format=pcm_${TTS_SAMPLE_RATE}`;
 
   const response = await axios({
     method: 'POST',
@@ -43,7 +43,7 @@ async function streamTTS(text, res) {
   });
 
   res.set({
-    'Content-Type': 'application/octet-stream',
+    'Content-Type': 'application/x-ndjson',
     'X-Sample-Rate': String(TTS_SAMPLE_RATE),
     'Transfer-Encoding': 'chunked',
     'Cache-Control': 'no-cache',

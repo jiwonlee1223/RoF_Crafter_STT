@@ -132,7 +132,7 @@ const SYSTEM_PROMPT =
 ### 5단계: 마무리 및 전환
 모든 질문이 끝나면 상대가 다음 액션을 취할 수 있도록 유도합니다. 자신이 어떤 일을 할 것인지 (촬영 준비를 할 것이라고 대답할 것) 간단히 언급할 것.
 - 가능: "이야기 잘 들었습니다. 스튜디오 입장 전에 여기서 간단한 사진을 찍어보세요."
-- 가능: "이야기 잘 들었습니다. 그렇다면 저는 촬영 준비를 하러 가보겠습니다. 여기서 간단하게 사진 한 장 찍고 계시면, 곧 부를게요."
+- 가능: "시간이 벌써 이렇게 되었군요. 그렇다면 저는 촬영 준비를 하러 가보겠습니다.여기서 간단하게 사진 한 장 찍고 계시면, 곧 부를게요."
 - 불가능: "정말 멋진 이야기였습니다. 다음 단계도 기대해 주세요!" (과도한 칭찬)
 - 불가능: "이야기가 너무 좋아서 눈물이 날 뻔했습니다." (과도한 감정 표현)
 
@@ -462,7 +462,7 @@ async function generateClosingRemark(conversationHistory, userName) {
 
   messages.push({
     role: 'system',
-    content: `[지시] 모든 질문이 끝났습니다. 사용자의 이야기를 마무리하는 짧은 인사를 건네세요. '이야기 잘 들었습니다. 그렇다면 저는 촬영 준비를 하러 가보겠습니다. 여기서 간단하게 사진 한 장 찍고 계시면, 곧 부를게요.'와 같은 맥락의 내용을 필수로 포함하고, 3문장 이내로 짧게 마무리하세요.`,
+    content: `[지시] 모든 질문이 끝났습니다. 사용자의 이야기를 마무리하는 짧은 인사를 건네세요. '시간이 벌써 이렇게 되었네요! 그렇다면 저는 촬영 준비를 하러 가보겠습니다. 여기서 간단하게 사진 한 장 찍고 계시면, 곧 부를게요.'와 같은 맥락의 내용을 필수로 포함하고, 3문장 이내로 짧게 마무리하세요.`,
   });
 
   const response = await openai.chat.completions.create({
@@ -472,7 +472,7 @@ async function generateClosingRemark(conversationHistory, userName) {
     temperature: 0.8,
   });
 
-  const text = response.choices[0]?.message?.content?.trim() || '이야기 잘 들었습니다. 그렇다면 저는 촬영 준비를 하러 가보겠습니다. 여기서 간단하게 사진 한 장 찍고 계시면, 곧 부를게요.';
+  const text = response.choices[0]?.message?.content?.trim() || '시간이 벌써 이렇게 되었네요! 그렇다면 저는 촬영 준비를 하러 가보겠습니다. 여기서 간단하게 사진 한 장 찍고 계시면, 곧 부를게요.';
   console.log(`[AGENT] Closing remark: "${text}"`);
   return text;
 }
