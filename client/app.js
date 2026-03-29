@@ -86,6 +86,85 @@
   let orbTime = 0;
   let orbAudioData = null; // Float32 frequency data for recording visualization
 
+  // --- Silhouette Shape (upper body: head + shoulders + torso) ---
+  const SILHOUETTE = (() => {
+    const pts = [];
+    const PI = Math.PI;
+    const hCy = -0.50, hR = 0.23; // head center Y & radius
+
+    // Head arc: left ear → top → right ear (clockwise in screen coords)
+    const headSteps = 30;
+    for (let i = 0; i <= headSteps; i++) {
+      const a = (PI - PI / 6) + (2 * PI / 3 + 2 * PI / 6) * (i / headSteps);
+      pts.push({ x: hR * Math.cos(a), y: hCy + hR * Math.sin(a) });
+    }
+
+    // Right jaw & neck (going down)
+    pts.push({ x: 0.18, y: -0.32 });
+    pts.push({ x: 0.15, y: -0.26 });
+    pts.push({ x: 0.10, y: -0.18 });
+    pts.push({ x: 0.09, y: -0.10 });
+    pts.push({ x: 0.09, y: -0.02 });
+
+    // Right shoulder
+    pts.push({ x: 0.14, y: 0.06 });
+    pts.push({ x: 0.24, y: 0.10 });
+    pts.push({ x: 0.38, y: 0.14 });
+    pts.push({ x: 0.52, y: 0.22 });
+    pts.push({ x: 0.60, y: 0.32 });
+
+    // Right torso
+    pts.push({ x: 0.52, y: 0.46 });
+    pts.push({ x: 0.46, y: 0.58 });
+    pts.push({ x: 0.44, y: 0.68 });
+
+    // Bottom curve
+    pts.push({ x: 0.34, y: 0.74 });
+    pts.push({ x: 0.17, y: 0.77 });
+    pts.push({ x: 0.00, y: 0.78 });
+    pts.push({ x: -0.17, y: 0.77 });
+    pts.push({ x: -0.34, y: 0.74 });
+
+    // Left torso
+    pts.push({ x: -0.44, y: 0.68 });
+    pts.push({ x: -0.46, y: 0.58 });
+    pts.push({ x: -0.52, y: 0.46 });
+
+    // Left shoulder
+    pts.push({ x: -0.60, y: 0.32 });
+    pts.push({ x: -0.52, y: 0.22 });
+    pts.push({ x: -0.38, y: 0.14 });
+    pts.push({ x: -0.24, y: 0.10 });
+    pts.push({ x: -0.14, y: 0.06 });
+
+    // Left neck & jaw (going up)
+    pts.push({ x: -0.09, y: -0.02 });
+    pts.push({ x: -0.09, y: -0.10 });
+    pts.push({ x: -0.10, y: -0.18 });
+    pts.push({ x: -0.15, y: -0.26 });
+    pts.push({ x: -0.18, y: -0.32 });
+
+    // Connects back to start of head arc (left ear)
+
+    return pts;
+  })();
+
+  // Pre-compute outward normals for silhouette distortion
+  const SILHOUETTE_NORMALS = (() => {
+    const n = SILHOUETTE.length;
+    const normals = [];
+    for (let i = 0; i < n; i++) {
+      const prev = SILHOUETTE[(i - 1 + n) % n];
+      const next = SILHOUETTE[(i + 1) % n];
+      const dx = next.x - prev.x;
+      const dy = next.y - prev.y;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      // Outward normal for clockwise path
+      normals.push({ x: dy / len, y: -dx / len });
+    }
+    return normals;
+  })();
+
   // --- Auth ---
   function showLoginError(msg) {
     loginError.textContent = msg;
@@ -1059,95 +1138,97 @@
     }
   }
 
-  // --- Idle: gentle breathing orb ---
+  // --- Idle: gentle breathing silhouette ---
   function drawIdleOrb(ctx, cx, cy, t) {
-    const baseR = 60;
-    const breathe = Math.sin(t * 0.8) * 4;
-    const r = baseR + breathe;
+    const baseS = 110;
+    const breathe = Math.sin(t * 0.8) * 5;
+    const s = baseS + breathe;
 
-    // Outer glow
-    const grad = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.8);
+    // Outer glow (elliptical)
+    const grad = ctx.createRadialGradient(cx, cy + s * 0.05, s * 0.2, cx, cy + s * 0.05, s * 0.9);
     grad.addColorStop(0, 'rgba(73, 73, 73, 0.08)');
     grad.addColorStop(1, 'rgba(73, 73, 73, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 1.8, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy + s * 0.05, s * 0.7, s * 0.9, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Main orb with subtle distortion
-    drawBlobOrb(ctx, cx, cy, r, t, 0.3, [
+    // Main silhouette with subtle distortion
+    drawBlobSilhouette(ctx, cx, cy, s, t, 0.3, [
       { r: 73, g: 73, b: 73, a: 0.6 },
       { r: 60, g: 60, b: 60, a: 0.3 },
     ]);
   }
 
-  // --- Speaking: dynamic red orb responding to TTS audio ---
+  // --- Speaking: dynamic red silhouette responding to TTS audio ---
   function drawSpeakingOrb(ctx, cx, cy, t, energy) {
-    const baseR = 65;
-    const audioBoost = energy * 30;
-    const r = baseR + audioBoost + Math.sin(t * 1.2) * 3;
+    const baseS = 115;
+    const audioBoost = energy * 35;
+    const s = baseS + audioBoost + Math.sin(t * 1.2) * 4;
 
     // Glow
-    const grad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2.2);
+    const grad = ctx.createRadialGradient(cx, cy + s * 0.05, s * 0.15, cx, cy + s * 0.05, s * 1.1);
     grad.addColorStop(0, `rgba(166, 26, 30, ${0.12 + energy * 0.15})`);
     grad.addColorStop(0.5, `rgba(166, 26, 30, ${0.04 + energy * 0.06})`);
     grad.addColorStop(1, 'rgba(166, 26, 30, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy + s * 0.05, s * 0.8, s * 1.1, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Ripple rings
+    // Ripple rings (elliptical, following silhouette proportions)
     const rippleCount = 3;
     for (let i = 0; i < rippleCount; i++) {
       const phase = (t * 1.5 + i * 2.1) % 6;
-      const rippleR = r + phase * 15;
+      const rippleS = s * 0.65 + phase * 12;
       const alpha = Math.max(0, 0.15 - phase * 0.025) * (0.5 + energy);
       ctx.strokeStyle = `rgba(166, 26, 30, ${alpha})`;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(cx, cy, rippleR, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy + s * 0.05, rippleS * 0.85, rippleS, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // Main orb
-    drawBlobOrb(ctx, cx, cy, r, t * 1.5, 0.5 + energy * 0.8, [
+    // Main silhouette
+    drawBlobSilhouette(ctx, cx, cy, s, t * 1.5, 0.5 + energy * 0.8, [
       { r: 166, g: 26, b: 30, a: 0.7 },
       { r: 140, g: 20, b: 24, a: 0.4 },
     ]);
   }
 
-  // --- Recording: gray responsive orb ---
+  // --- Recording: gray responsive silhouette ---
   function drawRecordingOrb(ctx, cx, cy, t, energy) {
-    const baseR = 60;
-    const audioBoost = energy * 35;
-    const r = baseR + audioBoost;
+    const baseS = 110;
+    const audioBoost = energy * 40;
+    const s = baseS + audioBoost;
 
     // Glow
-    const grad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2);
+    const grad = ctx.createRadialGradient(cx, cy + s * 0.05, s * 0.15, cx, cy + s * 0.05, s * 1.0);
     grad.addColorStop(0, `rgba(73, 73, 73, ${0.15 + energy * 0.2})`);
     grad.addColorStop(0.6, `rgba(73, 73, 73, ${0.05 + energy * 0.08})`);
     grad.addColorStop(1, 'rgba(73, 73, 73, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 2, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy + s * 0.05, s * 0.75, s * 1.0, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Audio wave ring
+    // Audio wave ring (follows silhouette outline)
     if (energy > 0.05 && orbAudioData) {
       ctx.save();
       ctx.strokeStyle = `rgba(73, 73, 73, ${0.3 + energy * 0.3})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      const points = 64;
-      for (let i = 0; i <= points; i++) {
-        const angle = (i / points) * Math.PI * 2;
-        const freqIdx = Math.floor((i / points) * orbAudioData.length);
+      const n = SILHOUETTE.length;
+      for (let i = 0; i <= n; i++) {
+        const idx = i % n;
+        const pt = SILHOUETTE[idx];
+        const nm = SILHOUETTE_NORMALS[idx];
+        const freqIdx = Math.floor((idx / n) * orbAudioData.length);
         const db = orbAudioData[freqIdx] || -100;
-        const amp = Math.max(0, (db + 100) / 100) * 20;
-        const pr = r + 15 + amp;
-        const x = cx + Math.cos(angle) * pr;
-        const y = cy + Math.sin(angle) * pr;
+        const amp = Math.max(0, (db + 100) / 100) * 15;
+        const waveScale = s * 1.12 + amp;
+        const x = cx + (pt.x * waveScale) + nm.x * amp;
+        const y = cy + (pt.y * waveScale) + nm.y * amp;
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
@@ -1156,74 +1237,79 @@
       ctx.restore();
     }
 
-    // Main orb
-    drawBlobOrb(ctx, cx, cy, r, t * 2, 0.6 + energy * 1.0, [
+    // Main silhouette
+    drawBlobSilhouette(ctx, cx, cy, s, t * 2, 0.6 + energy * 1.0, [
       { r: 73, g: 73, b: 73, a: 0.8 },
       { r: 90, g: 90, b: 90, a: 0.4 },
     ]);
   }
 
-  // --- Processing: spinning orb ---
+  // --- Processing: spinning silhouette ---
   function drawProcessingOrb(ctx, cx, cy, t) {
-    const baseR = 55;
-    const r = baseR + Math.sin(t * 2) * 3;
+    const baseS = 100;
+    const s = baseS + Math.sin(t * 2) * 4;
 
-    // Spinning arc
+    // Spinning arcs (elliptical)
     ctx.save();
     const arcStart = t * 3;
     const arcLen = Math.PI * 1.2;
     ctx.strokeStyle = 'rgba(73, 73, 73, 0.4)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(cx, cy, r + 20, arcStart, arcStart + arcLen);
+    ctx.ellipse(cx, cy + s * 0.05, s * 0.55, s * 0.72, 0, arcStart, arcStart + arcLen);
     ctx.stroke();
 
     ctx.strokeStyle = 'rgba(166, 26, 30, 0.3)';
     ctx.beginPath();
-    ctx.arc(cx, cy, r + 28, -arcStart * 0.7, -arcStart * 0.7 + arcLen * 0.8);
+    ctx.ellipse(cx, cy + s * 0.05, s * 0.62, s * 0.80, 0, -arcStart * 0.7, -arcStart * 0.7 + arcLen * 0.8);
     ctx.stroke();
     ctx.restore();
 
     // Glow
-    const grad = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.6);
+    const grad = ctx.createRadialGradient(cx, cy + s * 0.05, s * 0.2, cx, cy + s * 0.05, s * 0.85);
     grad.addColorStop(0, 'rgba(73, 73, 73, 0.1)');
     grad.addColorStop(1, 'rgba(73, 73, 73, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy + s * 0.05, s * 0.65, s * 0.85, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Main orb (dimmer)
-    drawBlobOrb(ctx, cx, cy, r, t, 0.4, [
+    // Main silhouette (dimmer)
+    drawBlobSilhouette(ctx, cx, cy, s, t, 0.4, [
       { r: 73, g: 73, b: 73, a: 0.4 },
       { r: 60, g: 60, b: 60, a: 0.2 },
     ]);
   }
 
-  // --- Blob orb drawing helper ---
-  function drawBlobOrb(ctx, cx, cy, radius, t, distortion, colors) {
-    const points = 120;
+  // --- Silhouette drawing helper (replaces blob orb) ---
+  function drawBlobSilhouette(ctx, cx, cy, scale, t, distortion, colors) {
+    const n = SILHOUETTE.length;
     ctx.save();
 
-    // Create blob path
+    // Create silhouette path with organic distortion
     ctx.beginPath();
-    for (let i = 0; i <= points; i++) {
-      const angle = (i / points) * Math.PI * 2;
-      const n1 = Math.sin(angle * 3 + t * 1.2) * distortion * 6;
-      const n2 = Math.sin(angle * 5 - t * 0.8) * distortion * 3;
-      const n3 = Math.cos(angle * 2 + t * 1.5) * distortion * 4;
-      const r = radius + n1 + n2 + n3;
-      const x = cx + Math.cos(angle) * r;
-      const y = cy + Math.sin(angle) * r;
+    for (let i = 0; i <= n; i++) {
+      const idx = i % n;
+      const pt = SILHOUETTE[idx];
+      const nm = SILHOUETTE_NORMALS[idx];
+
+      // Organic noise along the normal direction
+      const noise1 = Math.sin(idx * 0.5 + t * 1.2) * distortion * 0.04;
+      const noise2 = Math.sin(idx * 0.8 - t * 0.8) * distortion * 0.02;
+      const noise3 = Math.cos(idx * 0.3 + t * 1.5) * distortion * 0.03;
+      const d = (noise1 + noise2 + noise3) * scale;
+
+      const x = cx + pt.x * scale + nm.x * d;
+      const y = cy + pt.y * scale + nm.y * d;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.closePath();
 
-    // Fill with gradient
+    // Fill with gradient (centered slightly above middle for head emphasis)
     const grad = ctx.createRadialGradient(
-      cx - radius * 0.3, cy - radius * 0.3, radius * 0.1,
-      cx, cy, radius * 1.2
+      cx - scale * 0.1, cy - scale * 0.25, scale * 0.05,
+      cx, cy + scale * 0.05, scale * 0.85
     );
     const c1 = colors[0];
     const c2 = colors[1];
@@ -1233,12 +1319,12 @@
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Subtle inner highlight
+    // Subtle inner highlight on head area
     const highlight = ctx.createRadialGradient(
-      cx - radius * 0.2, cy - radius * 0.3, 0,
-      cx, cy, radius * 0.8
+      cx - scale * 0.05, cy - scale * 0.35, 0,
+      cx, cy - scale * 0.2, scale * 0.4
     );
-    highlight.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+    highlight.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
     highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = highlight;
     ctx.fill();
