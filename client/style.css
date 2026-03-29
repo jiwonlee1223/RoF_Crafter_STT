@@ -188,6 +188,26 @@ body {
   line-height: 1.7;
 }
 
+/* ── Summary 후 로딩 스피너 ── */
+.summary-spinner {
+  display: none;
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 8px auto 0;
+}
+
+.summary-spinner.visible {
+  display: block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .voice-subtitle {
   font-size: 0.8rem;
   color: var(--text-dim);
@@ -504,18 +524,14 @@ body {
   margin-bottom: 8px;
 }
 
-.video-progress-bar {
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--primary), var(--accent-dg, #A61A1E));
-  border-radius: 2px;
-  transition: width 0.5s ease;
+.video-status-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 8px;
 }
 
 .video-result {

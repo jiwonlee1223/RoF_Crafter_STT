@@ -36,6 +36,7 @@
   const orbCanvas = document.getElementById('orb-canvas');
   const orbGlow = document.getElementById('orb-glow');
   const voiceStatusText = document.getElementById('voice-status-text');
+  const summarySpinner = document.getElementById('summary-spinner');
   const voiceSubtitle = document.getElementById('voice-subtitle');
 
   // Video DOM
@@ -44,7 +45,6 @@
   const videoImageLabelText = document.getElementById('video-image-label-text');
   const btnGenerateVideo = document.getElementById('btn-generate-video');
   const videoStatusEl = document.getElementById('video-status');
-  const videoProgressFill = document.getElementById('video-progress-fill');
   const videoResult = document.getElementById('video-result');
 
   // Camera DOM
@@ -276,6 +276,7 @@
 
       case 'persona_ready':
         personaReady = true;
+        summarySpinner.classList.remove('visible');
         updateVideoButtonState();
         restoreSummary();
         // 비디오 섹션 보이기 & 자동으로 카메라 열기
@@ -296,19 +297,16 @@
       case 'video_status': {
         videoStatusEl.style.display = 'block';
         const statusMap = {
-          preprocessing: '미래의 당신을 불러오고 있어요. 5분 뒤 RoF Studio에 방문해 주세요.',
-          uploading: '미래의 당신을 불러오고 있어요. 5분 뒤 RoF Studio에 방문해 주세요.',
-          generating: '미래의 당신을 불러오고 있어요. 5분 뒤 RoF Studio에 방문해 주세요.',
+          preprocessing: '미래의 당신을 불러오고 있어요.',
+          uploading: '미래의 당신을 불러오고 있어요.',
+          generating: '미래의 당신을 불러오고 있어요.',
         };
         videoStatusEl.querySelector('.video-status-text').textContent = statusMap[msg.status] || msg.status;
         break;
       }
 
-      case 'video_progress': {
-        const pct = msg.total > 0 ? Math.round((msg.finished / msg.total) * 100) : 0;
-        videoProgressFill.style.width = `${pct}%`;
+      case 'video_progress':
         break;
-      }
 
       case 'video_complete':
         videoStatusEl.style.display = 'none';
@@ -793,6 +791,9 @@
       } else {
         // 타이핑 완료 — 최종 HTML 저장
         savedSummaryHtml = voiceStatusText.innerHTML;
+        if (!personaReady) {
+          summarySpinner.classList.add('visible');
+        }
       }
     }
     tick();
@@ -820,6 +821,7 @@
     voiceSubtitle.textContent = '';
 
     voiceStatusText.textContent = '';
+    summarySpinner.classList.remove('visible');
 
     if (videoSection) {
       videoSection.style.display = 'block';
@@ -950,7 +952,6 @@
       btnGenerateVideo.classList.add('btn-video-loading');
     }
     videoResult.style.display = 'none';
-    videoProgressFill.style.width = '0%';
 
     const arrayBuffer = await file.arrayBuffer();
     ws.send(JSON.stringify({
@@ -984,8 +985,7 @@
       btnGenerateVideo.disabled = true;
       btnGenerateVideo.classList.add('btn-video-loading');
       videoResult.style.display = 'none';
-      videoProgressFill.style.width = '0%';
-
+  
       const arrayBuffer = await file.arrayBuffer();
       ws.send(JSON.stringify({
         type: 'generate_video',
