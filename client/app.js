@@ -38,6 +38,8 @@
   const voiceStatusText = document.getElementById('voice-status-text');
   const summarySpinner = document.getElementById('summary-spinner');
   const voiceSubtitle = document.getElementById('voice-subtitle');
+  const lowVolumeBubble = document.getElementById('low-volume-bubble');
+  const highNoiseBubble = document.getElementById('high-noise-bubble');
 
   // Video DOM
   const videoSection = document.getElementById('video-section');
@@ -85,6 +87,23 @@
   let orbState = 'idle'; // idle | speaking | recording | processing
   let orbTime = 0;
   let orbAudioData = null; // Float32 frequency data for recording visualization
+
+  // --- Low-volume alert state ---
+  const LOW_VOL_THRESHOLD = 0.12;   // energy 0~1 기준 (이 이하면 저음량)
+  const LOW_VOL_SUSTAIN_MS = 1500;  // 이 시간 동안 지속 저음량이면 알림
+  const LOW_VOL_HIDE_MS = 800;      // 음량 복구 후 이 시간 뒤에 숨김
+  let lowVolStart = null;           // 저음량 시작 시각
+  let lowVolShowing = false;        // 현재 말풍선 표시 중 여부
+  let lowVolHideTimer = null;       // 숨김 딜레이 타이머
+
+  // --- High-noise alert state ---
+  const HIGH_NOISE_THRESHOLD = 0.45;  // 노이즈 플로어가 이 이상이면 소음 경고
+  const NOISE_FLOOR_WINDOW = 30;      // 최근 N 프레임으로 노이즈 플로어 추정
+  const HIGH_NOISE_SUSTAIN_MS = 2000; // 이 시간 동안 지속되면 알림
+  let noiseFloorSamples = [];         // 최근 에너지 최솟값 추적용
+  let highNoiseStart = null;
+  let highNoiseShowing = false;
+  let highNoiseHideTimer = null;
 
   // --- Silhouette Shape (upper body: head + shoulders + torso) ---
   const SILHOUETTE = (() => {
@@ -700,6 +719,20 @@
     if (isRecording) stopRecording();
   });
 
+  // --- 키보드 Push-to-Talk (Enter 키 등 물리 버튼 대응) ---
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.repeat) return;
+    if (btnStart.disabled || isRecording) return;
+    e.preventDefault();
+    dismissRecordGuide();
+    startRecording();
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.key !== 'Enter') return;
+    if (isRecording) stopRecording();
+  });
+
   // --- Start Recording ---
   async function startRecording() {
     if (isRecording) return;
@@ -785,6 +818,10 @@
     }
 
     orbAudioData = null;
+    hideLowVolumeBubble();
+    if (lowVolHideTimer) { clearTimeout(lowVolHideTimer); lowVolHideTimer = null; }
+    hideHighNoiseBubble();
+    if (highNoiseHideTimer) { clearTimeout(highNoiseHideTimer); highNoiseHideTimer = null; }
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'stop_recording' }));
@@ -816,9 +853,112 @@
       animFrameId = requestAnimationFrame(draw);
       if (analyserNode && orbAudioData) {
         analyserNode.getFloatFrequencyData(orbAudioData);
+        checkLowVolume(orbAudioData);
+        checkHighNoise(orbAudioData);
       }
     }
     draw();
+  }
+
+  // --- Audio analysis helpers ---
+  function computeEnergy(freqData) {
+    let sum = 0;
+    for (let i = 0; i < freqData.length; i++) {
+      sum += Math.max(0, (freqData[i] + 100) / 100);
+    }
+    return freqData.length > 0 ? Math.min(sum / freqData.length, 1) : 0;
+  }
+
+  function checkLowVolume(freqData) {
+    const energy = computeEnergy(freqData);
+    const now = Date.now();
+
+    if (energy < LOW_VOL_THRESHOLD) {
+      // 저음량 지속 시작 추적
+      if (lowVolStart === null) lowVolStart = now;
+
+      if (!lowVolShowing && now - lowVolStart >= LOW_VOL_SUSTAIN_MS) {
+        showLowVolumeBubble();
+      }
+      // 저음량 지속 중이면 숨김 타이머 취소
+      if (lowVolHideTimer) {
+        clearTimeout(lowVolHideTimer);
+        lowVolHideTimer = null;
+      }
+    } else {
+      // 음량 정상 복구
+      lowVolStart = null;
+      if (lowVolShowing && !lowVolHideTimer) {
+        lowVolHideTimer = setTimeout(() => {
+          hideLowVolumeBubble();
+          lowVolHideTimer = null;
+        }, LOW_VOL_HIDE_MS);
+      }
+    }
+  }
+
+  function showLowVolumeBubble() {
+    lowVolShowing = true;
+    lowVolumeBubble.classList.add('visible');
+    lowVolumeBubble.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideLowVolumeBubble() {
+    lowVolShowing = false;
+    lowVolStart = null;
+    lowVolumeBubble.classList.remove('visible');
+    lowVolumeBubble.setAttribute('aria-hidden', 'true');
+  }
+
+  // --- High-noise detection ---
+  // 노이즈 플로어 = 최근 N프레임 중 최솟값 (지속적으로 높으면 → 주변 소음)
+  function checkHighNoise(freqData) {
+    const energy = computeEnergy(freqData);
+    const now = Date.now();
+
+    noiseFloorSamples.push(energy);
+    if (noiseFloorSamples.length > NOISE_FLOOR_WINDOW) {
+      noiseFloorSamples.shift();
+    }
+
+    // 샘플이 충분히 쌓이기 전엔 판단하지 않음
+    if (noiseFloorSamples.length < NOISE_FLOOR_WINDOW) return;
+
+    const noiseFloor = Math.min(...noiseFloorSamples);
+
+    if (noiseFloor >= HIGH_NOISE_THRESHOLD) {
+      if (highNoiseStart === null) highNoiseStart = now;
+
+      if (!highNoiseShowing && now - highNoiseStart >= HIGH_NOISE_SUSTAIN_MS) {
+        showHighNoiseBubble();
+      }
+      if (highNoiseHideTimer) {
+        clearTimeout(highNoiseHideTimer);
+        highNoiseHideTimer = null;
+      }
+    } else {
+      highNoiseStart = null;
+      if (highNoiseShowing && !highNoiseHideTimer) {
+        highNoiseHideTimer = setTimeout(() => {
+          hideHighNoiseBubble();
+          highNoiseHideTimer = null;
+        }, LOW_VOL_HIDE_MS);
+      }
+    }
+  }
+
+  function showHighNoiseBubble() {
+    highNoiseShowing = true;
+    highNoiseBubble.classList.add('visible');
+    highNoiseBubble.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideHighNoiseBubble() {
+    highNoiseShowing = false;
+    highNoiseStart = null;
+    noiseFloorSamples = [];
+    highNoiseBubble.classList.remove('visible');
+    highNoiseBubble.setAttribute('aria-hidden', 'true');
   }
 
   // --- UI Utilities ---

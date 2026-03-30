@@ -71,6 +71,12 @@
       <div class="orb-container" id="orb-container">
         <canvas id="orb-canvas" width="280" height="340"></canvas>
         <div class="orb-glow" id="orb-glow"></div>
+        <div class="low-volume-bubble" id="low-volume-bubble" aria-hidden="true">
+          조금만 더 크게 말해주세요 🎙️
+        </div>
+        <div class="low-volume-bubble high-noise" id="high-noise-bubble" aria-hidden="true">
+          주변이 시끄러워요, 조용한 곳으로 이동해 주세요 🔇
+        </div>
       </div>
       <p class="voice-status-text" id="voice-status-text">발화 중...</p>
       <p class="voice-subtitle" id="voice-subtitle"></p>
@@ -83,10 +89,11 @@
 
     <!-- 하단 컨트롤 -->
     <footer class="voice-footer">
-      <div id="record-guide-bubble" class="record-guide-bubble" aria-hidden="true">
-        버튼을 꾹 누른 상태로 답변해 주세요.
-      </div>
-      <button id="btn-start" class="voice-mic-btn push-to-talk" disabled>
+      <div class="mic-btn-wrapper">
+        <div id="record-guide-bubble" class="record-guide-bubble" aria-hidden="true">
+          버튼을 꾹 누른 상태로 답변해 주세요.
+        </div>
+        <button id="btn-start" class="voice-mic-btn push-to-talk" disabled>
         <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
           <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -94,6 +101,7 @@
           <line x1="8" y1="23" x2="16" y2="23"/>
         </svg>
       </button>
+      </div>
       <span id="mic-label" class="voice-mic-label">대기 중</span>
       <button id="btn-end-session" class="btn-end-voice" disabled>대화 종료</button>
     </footer>

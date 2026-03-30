@@ -139,6 +139,50 @@ body {
   transition: all 0.6s ease;
 }
 
+/* 녹음 중 저음량 안내 말풍선 */
+.low-volume-bubble {
+  display: none;
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  z-index: 20;
+  padding: 10px 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  color: var(--text);
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  pointer-events: none;
+}
+
+.low-volume-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-top-color: var(--surface-2);
+  border-bottom: none;
+}
+
+.low-volume-bubble.visible {
+  display: block;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.low-volume-bubble.high-noise {
+  top: auto;
+  bottom: 10px;
+}
+
 .orb-glow.speaking {
   width: 230px;
   height: 300px;
@@ -289,6 +333,14 @@ body {
 
 .record-guide-bubble.visible {
   display: block;
+}
+
+/* 마이크 버튼 wrapper (말풍선 위치 기준) */
+.mic-btn-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 마이크 버튼 */
