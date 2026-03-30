@@ -721,6 +721,7 @@
 
   // --- 키보드 Push-to-Talk (Enter 키 등 물리 버튼 대응) ---
   window.addEventListener('keydown', (e) => {
+    console.log('[KEY]', e.key, e.code, e.keyCode);
     if (e.key !== 'Enter' || e.repeat) return;
     if (btnStart.disabled || isRecording) return;
     e.preventDefault();
@@ -736,6 +737,7 @@
   // --- Start Recording ---
   async function startRecording() {
     if (isRecording) return;
+    isRecording = true; // 즉시 설정하여 중복 호출 방지
 
     try {
       if (ws && ws.readyState === WebSocket.OPEN) {
@@ -771,7 +773,6 @@
       source.connect(pcmWorkletNode);
       pcmWorkletNode.connect(audioContext.destination);
 
-      isRecording = true;
       btnStart.classList.add('recording');
       micLabel.textContent = '';
       liveTranscript.textContent = '';
@@ -782,6 +783,7 @@
       orbAudioData = new Float32Array(analyserNode.frequencyBinCount);
       drawVisualizer();
     } catch (err) {
+      isRecording = false; // 실패 시 플래그 복구
       console.error('[Mic] Access denied:', err);
       voiceStatusText.textContent = '마이크 접근 권한이 필요합니다';
     }
