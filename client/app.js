@@ -472,6 +472,65 @@
     }
   }
 
+  function showVoiceSentence(text) {
+    voiceStatusText.classList.remove('fade-in');
+    void voiceStatusText.offsetWidth; // 동일 문장 연속 출력 시 애니메이션 재시작
+    voiceStatusText.textContent = text || '';
+    voiceStatusText.scrollTop = 0;
+    if (text) {
+      voiceStatusText.classList.add('fade-in');
+    }
+  }
+
+  function splitSentencesForDisplay(text) {
+    const sentences = [];
+    const breakPoints = [];
+    const punctuation = new Set(['.', '!', '?', '。', '！', '？']);
+    let buf = '';
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const next = i + 1 < text.length ? text[i + 1] : '';
+      buf += ch;
+
+      if (ch === '\n') {
+        const cleaned = buf.replace(/\s+/g, ' ').trim();
+        if (cleaned) {
+          sentences.push(cleaned);
+          breakPoints.push(i + 1);
+        }
+        buf = '';
+        continue;
+      }
+
+      if (punctuation.has(ch)) {
+        if (!next || /\s/.test(next)) {
+          const cleaned = buf.replace(/\s+/g, ' ').trim();
+          if (cleaned) {
+            sentences.push(cleaned);
+            breakPoints.push(i + 1);
+          }
+          buf = '';
+        }
+      }
+    }
+
+    const tail = buf.replace(/\s+/g, ' ').trim();
+    if (tail) {
+      sentences.push(tail);
+      breakPoints.push(text.length);
+    }
+
+    if (sentences.length === 0) {
+      const cleaned = (text || '').replace(/\s+/g, ' ').trim();
+      return {
+        sentences: cleaned ? [cleaned] : [''],
+        breakPoints: [cleaned ? cleaned.length : 0],
+      };
+    }
+    return { sentences, breakPoints };
+  }
+
   async function speakThenReady(text) {
     console.log('[TTS] speakThenReady called, text length:', text.length);
     btnStart.disabled = true;
@@ -481,7 +540,10 @@
     isSpeaking = true;
     setOrbState('speaking');
     stopTypewriter();
-    voiceStatusText.textContent = '';
+    showVoiceSentence('');
+
+    const { sentences, breakPoints } = splitSentencesForDisplay(text || '');
+    let shownSentenceIdx = -1;
 
     if (ttsAbortCtrl) ttsAbortCtrl.abort();
 
@@ -523,11 +585,13 @@
       let scheduledTime = 0;
       let chunkCount = 0;
       let lastSource = null;
-      let shownLen = 0;
       let ndjsonBuffer = '';
+      let streamEnded = false;
 
       // Character-level timestamps from ElevenLabs alignment data
       const charTimestamps = []; // [{ startTime }]
+      // 정렬 기반 visibleLen이 프레임마다 줄어드는 경우(스트림/클럭) 문장 인덱스가 역행하지 않도록
+      let maxAlignVisibleLen = 0;
 
       // Process a single NDJSON line: extract alignment + schedule audio
       const processLine = (line) => {
@@ -536,7 +600,7 @@
         try { parsed = JSON.parse(line); }
         catch (e) { console.warn('[TTS] NDJSON parse error:', e.message); return; }
 
-        // Collect character-level alignment
+        // Collect character-level alignment for sentence sync
         if (parsed.alignment) {
           const chars = parsed.alignment.characters || [];
           const starts = parsed.alignment.character_start_times_seconds || [];
@@ -578,50 +642,79 @@
         chunkCount++;
       };
 
-      // rAF loop: sync text reveal with character-level timestamps
-      const syncText = () => {
+      const showSentenceByIndex = (idx) => {
+        if (idx === shownSentenceIdx) return;
+        shownSentenceIdx = idx;
+        showVoiceSentence(sentences[idx] || '');
+      };
+
+      // rAF loop: sentence-level sync
+      const syncSentence = () => {
         if (!isSpeaking) return;
         if (audioStartAt === null) {
-          typewriterTimer = requestAnimationFrame(syncText);
+          typewriterTimer = requestAnimationFrame(syncSentence);
           return;
         }
-        const elapsed = ttsAudioCtx.currentTime - audioStartAt;
 
+        let targetIdx = shownSentenceIdx;
+
+        // 정렬이 스트리밍으로 늦게 오는 동안 totalDur가 매우 작으면 진행률 폴백이
+        // 문장 인덱스를 끝까지 튀었다가, 정렬 도착 후 다시 앞으로 가며 깜빡임이 난다.
+        // → 정렬이 하나도 없고 스트림이 아직 끝나지 않았으면 진행률 폴백을 쓰지 않고 첫 문장만 유지.
         if (charTimestamps.length > 0) {
-          // Word-level sync using ElevenLabs alignment
           let visibleLen = 0;
+          const elapsed = ttsAudioCtx.currentTime - audioStartAt;
           for (let i = 0; i < charTimestamps.length; i++) {
             if (elapsed >= charTimestamps[i].startTime) visibleLen = i + 1;
             else break;
           }
-          const target = Math.min(visibleLen, text.length);
-          if (target > shownLen) {
-            voiceStatusText.textContent = text.slice(0, target);
-            voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
-            shownLen = target;
-          }
-        } else {
-          // Fallback: proportional sync (before alignment data arrives)
-          const totalDur = scheduledTime - audioStartAt;
-          if (totalDur > 0) {
-            const progress = Math.min(elapsed / totalDur, 1);
-            const target = Math.ceil(progress * text.length);
-            if (target > shownLen) {
-              voiceStatusText.textContent = text.slice(0, target);
-              voiceStatusText.scrollTop = voiceStatusText.scrollHeight;
-              shownLen = target;
+          maxAlignVisibleLen = Math.max(maxAlignVisibleLen, visibleLen);
+          const stableVisible = maxAlignVisibleLen;
+          const cap = breakPoints.length ? breakPoints[breakPoints.length - 1] : (text || '').length;
+          const mappedLen = Math.min(stableVisible, cap);
+
+          if (mappedLen > 0) {
+            let found = false;
+            for (let i = 0; i < breakPoints.length; i++) {
+              if (mappedLen <= breakPoints[i]) {
+                targetIdx = i;
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              targetIdx = breakPoints.length - 1;
+            }
+            if (targetIdx === shownSentenceIdx && shownSentenceIdx < 0) {
+              targetIdx = 0;
             }
           }
+        } else if (streamEnded) {
+          const totalDur = Math.max(scheduledTime - audioStartAt, 0.001);
+          const elapsed = Math.max(ttsAudioCtx.currentTime - audioStartAt, 0);
+          const progress = Math.min(elapsed / totalDur, 1);
+          targetIdx = Math.min(
+            Math.floor(progress * sentences.length),
+            sentences.length - 1
+          );
+        } else {
+          targetIdx = 0;
         }
-        typewriterTimer = requestAnimationFrame(syncText);
+
+        const stableIdx = Math.max(shownSentenceIdx, targetIdx);
+        if (stableIdx >= 0) {
+          showSentenceByIndex(stableIdx);
+        }
+        typewriterTimer = requestAnimationFrame(syncSentence);
       };
-      typewriterTimer = requestAnimationFrame(syncText);
+      typewriterTimer = requestAnimationFrame(syncSentence);
 
       // Read NDJSON stream (each line: { audio_base64, alignment })
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
           ndjsonBuffer += decoder.decode();
+          streamEnded = true;
           break;
         }
         ndjsonBuffer += decoder.decode(value, { stream: true });
@@ -632,7 +725,7 @@
       }
       // Process any remaining data in buffer
       if (ndjsonBuffer.trim()) processLine(ndjsonBuffer);
-      console.log('[TTS] stream done, chunks:', chunkCount, 'duration:', scheduledTime - audioStartAt, 'alignments:', charTimestamps.length);
+      console.log('[TTS] stream done, chunks:', chunkCount, 'duration:', scheduledTime - audioStartAt);
 
       const FADE_OUT_SEC = 0.08;
       gainNode.gain.setValueAtTime(1, Math.max(0, scheduledTime - FADE_OUT_SEC));
@@ -641,7 +734,7 @@
       if (lastSource) {
         lastSource.onended = () => {
           stopTypewriter();
-          voiceStatusText.textContent = text;
+          showVoiceSentence(sentences[sentences.length - 1] || '');
           isSpeaking = false;
           orbAudioData = null;
           btnStart.classList.remove('speaking');
@@ -649,7 +742,7 @@
         };
       } else {
         stopTypewriter();
-        voiceStatusText.textContent = text;
+        showVoiceSentence(sentences[sentences.length - 1] || '');
         isSpeaking = false;
         orbAudioData = null;
         btnStart.classList.remove('speaking');
@@ -982,6 +1075,44 @@
   // --- Session Complete ---
   let summaryTypingTimer = null;
   let savedSummaryHtml = null;
+  function splitSummaryChunks(text) {
+    const src = (text || '').replace(/\r/g, '');
+    const chunks = [];
+    const sentencePunctuation = new Set(['.', '!', '?', '。', '！', '？']);
+    const commaPunctuation = new Set([',', '，']);
+    let buf = '';
+
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i];
+      const next = i + 1 < src.length ? src[i + 1] : '';
+      buf += ch;
+
+      if (ch === '\n') {
+        const cleaned = buf.replace(/\s+/g, ' ').trim();
+        if (cleaned) chunks.push(cleaned);
+        buf = '';
+        continue;
+      }
+
+      if (commaPunctuation.has(ch)) {
+        const cleaned = buf.replace(/\s+/g, ' ').trim();
+        if (cleaned) chunks.push(cleaned);
+        buf = '';
+        continue;
+      }
+
+      if (sentencePunctuation.has(ch) && (!next || /\s/.test(next))) {
+        const cleaned = buf.replace(/\s+/g, ' ').trim();
+        if (cleaned) chunks.push(cleaned);
+        buf = '';
+      }
+    }
+
+    const tail = buf.replace(/\s+/g, ' ').trim();
+    if (tail) chunks.push(tail);
+    return chunks.length > 0 ? chunks : [''];
+  }
+
   function startSummaryTypingAnimation(fullText) {
     if (summaryTypingTimer) {
       clearTimeout(summaryTypingTimer);
@@ -990,27 +1121,28 @@
     // summary 모드: 오브 흐리게 + 텍스트 오버랩
     voiceMain.classList.add('summary-mode');
 
-    // 문장 단위 줄바꿈 처리: 마침표+공백 → 마침표+줄바꿈, 기존 줄바꿈 유지
-    const formatted = fullText.replace(/([.。])\s+/g, '$1\n');
-
-    // 첫 줄(첫 번째 줄바꿈 기준)을 bold 처리
-    const firstBreak = formatted.indexOf('\n');
-    const boldEnd = firstBreak >= 0 ? firstBreak : formatted.length;
-
-    let charIndex = 0;
+    const sentences = splitSummaryChunks(fullText);
+    let sentenceIndex = 0;
     voiceStatusText.innerHTML = '';
+
     function tick() {
-      if (charIndex <= formatted.length) {
-        const visible = formatted.slice(0, charIndex);
-        if (charIndex <= boldEnd) {
-          voiceStatusText.innerHTML = '<strong>' + visible.replace(/\n/g, '<br>') + '</strong>';
-        } else {
-          voiceStatusText.innerHTML = '<strong>' + formatted.slice(0, boldEnd) + '</strong>' + visible.slice(boldEnd).replace(/\n/g, '<br>');
-        }
-        charIndex++;
-        summaryTypingTimer = setTimeout(tick, 80);
+      if (sentenceIndex < sentences.length) {
+        const line = document.createElement('div');
+        line.className = 'summary-sentence';
+        line.textContent = sentences[sentenceIndex];
+        voiceStatusText.appendChild(line);
+        sentenceIndex++;
+
+        const t = line.textContent || '';
+        const lastChar = t.slice(-1);
+        const isComma = lastChar === ',' || lastChar === '，';
+        const isSentenceEnd = ['.', '!', '?', '。', '！', '？'].includes(lastChar);
+        const baseDelay = isSentenceEnd ? 1250 : (isComma ? 950 : 780);
+        // 첫 줄은 즉시 시작, 이후 텀은 길게 유지
+        const delayMs = Math.min(3200, Math.max(baseDelay, baseDelay + t.length * 24));
+        summaryTypingTimer = setTimeout(tick, delayMs);
       } else {
-        // 타이핑 완료 — 최종 HTML 저장
+        // 애니메이션 완료 — 최종 HTML 저장
         savedSummaryHtml = voiceStatusText.innerHTML;
         if (!personaReady) {
           summarySpinner.classList.add('visible');

@@ -50,9 +50,9 @@ body {
 /* ── 상단 헤더 ── */
 .voice-header {
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: 32px 1fr 32px;
   align-items: center;
-  justify-content: space-between;
   padding: 16px 24px;
   z-index: 10;
 }
@@ -61,7 +61,7 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  flex-shrink: 0;
+  justify-self: center;
 }
 
 .status-dot.connected {
@@ -74,13 +74,18 @@ body {
 }
 
 .voice-progress-text {
+  justify-self: center;
   font-size: 0.8rem;
   color: var(--text-dim);
   font-weight: 500;
   letter-spacing: 1px;
+  text-align: center;
 }
 
 .btn-voice-close {
+  justify-self: center;
+  width: 32px;
+  height: 32px;
   background: none;
   border: none;
   color: var(--text-dim);
@@ -206,6 +211,14 @@ body {
   height: 4.5em;
   overflow-y: auto;
   scrollbar-width: none;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  line-break: strict;
+}
+
+.voice-status-text.fade-in {
+  animation: voiceSentenceFadeIn 0.35s ease both;
 }
 
 .voice-status-text::-webkit-scrollbar {
@@ -230,6 +243,15 @@ body {
   overflow-y: visible;
   font-size: 0.95rem;
   line-height: 1.7;
+}
+
+.voice-main.summary-mode .voice-status-text .summary-sentence {
+  opacity: 0;
+  animation: summarySentenceFadeIn 0.9s ease-out forwards;
+}
+
+.voice-main.summary-mode .voice-status-text .summary-sentence + .summary-sentence {
+  margin-top: 0.45em;
 }
 
 /* ── Summary 후 로딩 스피너 ── */
@@ -850,6 +872,22 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes summarySentenceFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes voiceSentenceFadeIn {
+  from { opacity: 0; }
+  to { opacity: 0.9; }
 }
 
 @keyframes slideUp {
