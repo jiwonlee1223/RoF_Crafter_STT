@@ -393,7 +393,7 @@
         break;
 
       case 'video_status': {
-        videoStatusEl.style.display = 'block';
+        videoStatusEl.style.display = 'flex';
         const statusMap = {
           preprocessing: '미래의 당신을 불러오고 있어요.',
           uploading: '미래의 당신을 불러오고 있어요.',
@@ -406,9 +406,14 @@
       case 'video_progress':
         break;
 
+      case 'future_scenes_complete':
+        videoStatusEl.querySelector('.video-status-text').textContent =
+          '10년 후의 나를 만난다면, 어떤 질문을 하고 싶으신가요?';
+        break;
+
       case 'video_complete':
         videoStatusEl.style.display = 'none';
-        videoResult.style.display = 'block';
+        videoResult.style.display = 'flex';
         btnGenerateVideo.disabled = false;
         btnGenerateVideo.classList.remove('btn-video-loading');
         restoreSummary();

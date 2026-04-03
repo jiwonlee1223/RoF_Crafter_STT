@@ -275,6 +275,50 @@ async function getVoice(userId) {
   }
 }
 
+// ── 미래 장면 이미지 저장 → Storage photo_test/{userId}/ + Firestore photo_test/{userId} ──
+async function saveFutureImages(userId, futureImages) {
+  if (!isReady() || !bucket) {
+    console.error('[FIREBASE] saveFutureImages skipped — isReady:', isReady(), 'bucket:', !!bucket);
+    return null;
+  }
+  try {
+    console.log(`[FIREBASE] saveFutureImages called — userId=${userId}, images=${futureImages.length}`);
+    const now = new Date().toISOString();
+    const scenes = [];
+
+    for (let i = 0; i < futureImages.length; i++) {
+      const { year, description, imageBuffer, mimeType } = futureImages[i];
+      const ext = mimeType.includes('png') ? 'png' : 'jpg';
+      const storagePath = `photo_test/${userId}/${year}_${i}.${ext}`;
+      const file = bucket.file(storagePath);
+
+      await file.save(imageBuffer, {
+        metadata: { contentType: mimeType },
+      });
+
+      const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '2030-01-01',
+      });
+
+      scenes.push({ year, description, imageUrl: url, storagePath });
+    }
+
+    await db.collection('photo_test').doc(userId).set({
+      userId,
+      scenes,
+      isPrinted: "false",
+      createdAt: now,
+    });
+
+    console.log(`[FIREBASE] Future scenes saved for user: ${userId} (${scenes.length} images)`);
+    return scenes;
+  } catch (err) {
+    console.error('[FIREBASE] Future scenes save failed:', err.message);
+    return null;
+  }
+}
+
 module.exports = {
   init,
   isReady,
@@ -287,4 +331,5 @@ module.exports = {
   saveChatHistory,
   saveGeneratedVideo,
   uploadAudio,
+  saveFutureImages,
 };

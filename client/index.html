@@ -59,6 +59,10 @@
         </svg>
       </button>
     </header>
+    <div id="video-status" class="video-status" style="display:none;">
+      <div class="video-status-spinner"></div>
+      <div class="video-status-text"></div>
+    </div>
     <div class="summary-spinner" id="summary-spinner"></div>
 
     <!-- 숨겨진 요소 (기존 로직 호환) -->
@@ -142,10 +146,6 @@
             <button id="btn-camera-confirm" class="btn-camera-action btn-camera-confirm-style" type="button" style="display:none;">사용하기</button>
           </div>
         </div>
-      </div>
-      <div id="video-status" class="video-status" style="display:none;">
-        <div class="video-status-spinner"></div>
-        <div class="video-status-text"></div>
       </div>
       <div id="video-result" class="video-result" style="display:none;">
         <p class="video-complete-msg">RoF Studio로 입장해 주세요.</p>

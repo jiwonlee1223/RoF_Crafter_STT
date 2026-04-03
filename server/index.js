@@ -438,6 +438,36 @@ wss.on('connection', async (ws, req) => {
           });
 
           console.log(`[VIDEO] Submitted, promptId=${promptId}`);
+
+          // ComfyUI 비디오 생성과 동시에 미래 장면 이미지 생성 (병렬)
+          const history = sessionManager.getSession(sessionId)?.conversation
+            ?.map(t => ({ role: t.role, text: t.text })) || [];
+
+          if (history.length > 0) {
+            geminiImageGen.generateFutureScenes({
+              conversationHistory: history,
+              userName,
+              birthDateTime,
+              gender,
+              rawImageBuffer: rawImage,
+              portraitImageBuffer: imageToUpload,
+            }).then(async (futureImages) => {
+              console.log(`[FUTURE] ${futureImages.length} future scene images generated for userId=${userId}`);
+              const saved = await firebaseService.saveFutureImages(userId, futureImages);
+              if (!saved) {
+                console.error(`[FUTURE] saveFutureImages returned null for userId=${userId}`);
+              }
+              if (saved) {
+                ws.send(JSON.stringify({
+                  type: 'future_scenes_complete',
+                  scenes: saved.map(s => ({ year: s.year, description: s.description, imageUrl: s.imageUrl })),
+                }));
+              }
+            }).catch(err => {
+              console.error('[FUTURE] Future scenes generation failed:', err.message);
+              ws.send(JSON.stringify({ type: 'future_scenes_error', message: err.message }));
+            });
+          }
         } catch (err) {
           console.error('[VIDEO] generate_video failed:', err.message);
           ws.send(JSON.stringify({ type: 'error', message: err.message }));
