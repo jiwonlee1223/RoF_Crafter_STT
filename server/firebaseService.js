@@ -307,7 +307,7 @@ async function saveFutureImages(userId, futureImages) {
     await db.collection('photo_test').doc(userId).set({
       userId,
       scenes,
-      isPrinted: "false",
+      isPrinted: false,
       createdAt: now,
     });
 
