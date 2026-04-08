@@ -485,6 +485,39 @@ wss.on('connection', async (ws, req) => {
 
 const MIN_VOICE_DURATION_SEC = 4.6;
 
+function getAge(birthDateStr) {
+  if (!birthDateStr) return null;
+  const today = new Date();
+  const birth = new Date(birthDateStr);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+// PCM 버퍼의 피치를 semitones만큼 낮춤 (속도는 유지)
+function shiftPitchDown(pcmBuffer, semitones = -3) {
+  const { spawn } = require('child_process');
+  const rate = Math.pow(2, semitones / 12);   // -3 semitones → ~0.841
+  const tempo = 1 / rate;                      // 속도 보정 (말 빠르기 유지)
+
+  return new Promise((resolve, reject) => {
+    const ff = spawn('ffmpeg', [
+      '-f', 's16le', '-ar', '16000', '-ac', '1', '-i', 'pipe:0',
+      '-af', `asetrate=16000*${rate},aresample=16000,atempo=${tempo}`,
+      '-f', 's16le', '-ar', '16000', '-ac', '1', 'pipe:1',
+    ]);
+
+    const chunks = [];
+    ff.stdout.on('data', chunk => chunks.push(chunk));
+    ff.stdout.on('end', () => resolve(Buffer.concat(chunks)));
+    ff.stderr.on('data', () => {});  // ffmpeg 로그 억제
+    ff.on('error', reject);
+    ff.stdin.write(pcmBuffer);
+    ff.stdin.end();
+  });
+}
+
 async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userName, gender, onFashionPrompt) {
   console.log(`[SESSION] handleSessionComplete called — onFashionPrompt=${typeof onFashionPrompt}`);
   try {
@@ -498,11 +531,20 @@ async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userN
       if (audioDuration < MIN_VOICE_DURATION_SEC) {
         console.warn(`[VOICE] Audio too short (${audioDuration.toFixed(1)}s < ${MIN_VOICE_DURATION_SEC}s) — skipping voice save`);
       } else {
-        audioUrl = await firebaseService.uploadAudio(sessionId, combinedAudio);
-        if (audioUrl) sessionManager.setAudioUrl(sessionId, audioUrl);
-
         const voiceUserId = userId || sessionId;
-        await firebaseService.saveVoice(voiceUserId, combinedAudio, 'recorded_voice.mp3', 'audio/mpeg');
+        const age = getAge(birthDateTime);
+        let audioToSave = combinedAudio;
+        if (age !== null && age <= 13) {
+          try {
+            audioToSave = await shiftPitchDown(combinedAudio, -3);
+            console.log(`[VOICE] Age ${age} ≤ 13 — pitch shifted -3 semitones`);
+          } catch (err) {
+            console.warn('[VOICE] Pitch shift failed, saving original:', err.message);
+          }
+        }
+        audioUrl = await firebaseService.uploadAudio(sessionId, audioToSave);
+        if (audioUrl) sessionManager.setAudioUrl(sessionId, audioUrl);
+        await firebaseService.saveVoice(voiceUserId, audioToSave, 'recorded_voice.mp3', 'audio/mpeg');
       }
     }
 
