@@ -708,7 +708,6 @@ body {
   border: 1px solid #2c2c2c;
   width: 100%;
   max-width: 360px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.28);
 }
 
 /* 헤더 밴드 */
