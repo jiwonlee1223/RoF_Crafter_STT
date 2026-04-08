@@ -204,12 +204,13 @@ wss.on('connection', async (ws, req) => {
   let finalTranscript = '';
   let lastConfidence = 0;
   let personaStylePrompt = null;
+  const userAge = getAge(birthDateTime);
 
   // 첫 인사 — questions[0]을 참고, 사용자 이름 반영
   const firstRef = questions.questions[0].text;
   let greeting;
   try {
-    greeting = await agentService.generateGreeting(firstRef, userName);
+    greeting = await agentService.generateGreeting(firstRef, userName, userAge);
   } catch (err) {
     console.error('[AGENT] Greeting failed:', err.message);
     greeting = firstRef;
@@ -340,7 +341,7 @@ wss.on('connection', async (ws, req) => {
           const history = sessionManager.getSession(sessionId).conversation
             .map(t => ({ role: t.role, text: t.text }));
 
-          const agentResponse = await agentService.generateResponse(history, nextRef, userName);
+          const agentResponse = await agentService.generateResponse(history, nextRef, userName, userAge);
           sessionManager.addTurn(sessionId, 'agent', agentResponse);
           questionIndex++;
 
@@ -495,16 +496,32 @@ function getAge(birthDateStr) {
   return age;
 }
 
-// PCM 버퍼의 피치를 semitones만큼 낮춤 (속도는 유지)
-function shiftPitchDown(pcmBuffer, semitones = -3) {
+// 변성기 효과: 성별에 따라 다른 파라미터 적용
+// 남자: F0 급락(-8) + 강한 저음 + 심한 갈라짐
+// 여자: F0 소폭(-2) + 약한 저음 + 거의 없는 갈라짐
+function shiftPitchDown(pcmBuffer, gender = 'female') {
   const { spawn } = require('child_process');
-  const rate = Math.pow(2, semitones / 12);   // -3 semitones → ~0.841
-  const tempo = 1 / rate;                      // 속도 보정 (말 빠르기 유지)
+
+  const params = gender === 'male'
+    ? { semitones: -8, eqFreq: 250, eqGain: 6,  cutFreq: 3500, cutGain: -6, vibratoD: 0.05 }
+    : { semitones: -2, eqFreq: 300, eqGain: 2,  cutFreq: 4000, cutGain: -2, vibratoD: 0.01 };
+
+  const rate = Math.pow(2, params.semitones / 12);
+  const tempo = 1 / rate;
+
+  const audioFilter = [
+    `asetrate=16000*${rate}`,
+    `aresample=16000`,
+    `atempo=${tempo}`,
+    `equalizer=f=${params.eqFreq}:width_type=o:width=2:g=${params.eqGain}`,
+    `equalizer=f=${params.cutFreq}:width_type=o:width=2:g=${params.cutGain}`,
+    `vibrato=f=4:d=${params.vibratoD}`,
+  ].join(',');
 
   return new Promise((resolve, reject) => {
     const ff = spawn('ffmpeg', [
       '-f', 's16le', '-ar', '16000', '-ac', '1', '-i', 'pipe:0',
-      '-af', `asetrate=16000*${rate},aresample=16000,atempo=${tempo}`,
+      '-af', audioFilter,
       '-f', 's16le', '-ar', '16000', '-ac', '1', 'pipe:1',
     ]);
 
@@ -536,8 +553,9 @@ async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userN
         let audioToSave = combinedAudio;
         if (age !== null && age <= 13) {
           try {
-            audioToSave = await shiftPitchDown(combinedAudio, -3);
-            console.log(`[VOICE] Age ${age} ≤ 13 — pitch shifted -3 semitones`);
+            audioToSave = await shiftPitchDown(combinedAudio, gender);
+            const p = gender === 'male' ? '-8 semitones, vibrato 0.05' : '-2 semitones, vibrato 0.01';
+            console.log(`[VOICE] Age ${age} ≤ 13, gender=${gender} — voice aging applied (${p})`);
           } catch (err) {
             console.warn('[VOICE] Pitch shift failed, saving original:', err.message);
           }

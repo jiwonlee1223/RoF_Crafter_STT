@@ -85,7 +85,7 @@ function getFutureAgeDecade(birthDateTime) {
     age--;
   }
 
-  const futureAge = Math.max(age + 15, 20);
+  const futureAge = Math.max(age + 10, 20);
   const remainder = futureAge % 10;
   const decade = Math.floor(futureAge / 10) * 10;
 

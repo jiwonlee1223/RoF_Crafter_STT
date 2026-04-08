@@ -159,6 +159,21 @@ const SYSTEM_PROMPT =
   "depth": "surface | moderate | deep"
 }`;
 
+const CHILD_TONE_PROMPT = `
+## 아이 대화 모드 (13세 이하)
+지금 대화 상대는 어린아이입니다. 아래 규칙을 기존 말투 규칙보다 우선 적용하세요.
+
+- 반말을 사용합니다. (~야, ~니?, ~했어?, ~해봐)
+- 짧고 쉬운 단어를 씁니다. 어려운 한자어나 추상적 표현은 피하세요.
+- 따뜻하고 다정한 톤으로, 아이가 편안하게 이야기할 수 있도록 합니다.
+- 아이의 답변을 작은 것이라도 자연스럽게 받아주세요. 단, 과한 칭찬은 하지 않습니다.
+- 질문은 더 구체적이고 상상하기 쉬운 표현으로 바꿔 전달합니다.
+  - 예: "꿈이 무엇입니까?" → "나중에 커서 뭐가 되고 싶어?"
+  - 예: "어떤 순간이 기억에 남습니까?" → "지금까지 살면서 제일 재미있었던 게 뭐야?"
+- 사용자를 '손님', '당신' 대신 이름으로 부르거나 '얘야', '친구야' 등 부드러운 호칭을 씁니다.
+- 3문장 이내 규칙은 동일하게 유지합니다.
+`;
+
 function init() {
   if (!process.env.OPENAI_API_KEY) {
     console.warn('[AGENT] OpenAI API key not set');
@@ -174,14 +189,18 @@ function init() {
  * @param {string} referenceQuestion - questions.json에서 가져온 참고 질문
  * @returns {Promise<string>}
  */
-async function generateResponse(conversationHistory, referenceQuestion, userName) {
+async function generateResponse(conversationHistory, referenceQuestion, userName, age) {
   if (!openai) {
     throw new Error('OpenAI client not initialized');
   }
 
-  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다. 참여자의 이름을 20% 확률로 불러주세요. 그 외에는 사용자를 '손님', '당신'으로 불러주세요.\n` : '';
+  const isChild = age !== null && age !== undefined && age <= 13;
+  const nameContext = isChild
+    ? (userName ? `대화 상대 아이의 이름은 "${userName}"입니다.\n` : '')
+    : (userName ? `사용자의 이름은 "${userName}"입니다. 참여자의 이름을 20% 확률로 불러주세요. 그 외에는 사용자를 '손님', '당신'으로 불러주세요.\n` : '');
+  const systemPrompt = nameContext + SYSTEM_PROMPT + (isChild ? CHILD_TONE_PROMPT : '');
   const messages = [
-    { role: 'system', content: nameContext + SYSTEM_PROMPT },
+    { role: 'system', content: systemPrompt },
   ];
 
   for (const turn of conversationHistory) {
@@ -223,16 +242,20 @@ async function generateResponse(conversationHistory, referenceQuestion, userName
  * 첫 인사를 생성한다. 참고 질문의 의도를 반영.
  * @param {string} referenceQuestion - questions.json의 첫 번째 질문
  */
-async function generateGreeting(referenceQuestion, userName) {
+async function generateGreeting(referenceQuestion, userName, age) {
   if (!openai) {
     return referenceQuestion || '안녕하세요! 오늘 기분이 어떠세요?';
   }
 
-  const nameContext = userName ? `사용자의 이름은 "${userName}"입니다. 인사할 때 사용자의 이름을 불러주세요.\n` : '';
+  const isChild = age !== null && age !== undefined && age <= 13;
+  const nameContext = isChild
+    ? (userName ? `대화 상대 아이의 이름은 "${userName}"입니다. 인사할 때 이름을 불러주세요.\n` : '')
+    : (userName ? `사용자의 이름은 "${userName}"입니다. 인사할 때 사용자의 이름을 불러주세요.\n` : '');
+  const systemPrompt = nameContext + SYSTEM_PROMPT + (isChild ? CHILD_TONE_PROMPT : '');
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
-      { role: 'system', content: nameContext + SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       {
         role: 'system',
         content: `[지시] 대화를 시작하세요. 인사 후, 아래 참고 질문을 자연스러운 대화체로 이어서 물어보세요. 질문의 의도를 재해석하지 말고 그대로 전달하세요.\n[참고 질문] "${referenceQuestion}"`,
