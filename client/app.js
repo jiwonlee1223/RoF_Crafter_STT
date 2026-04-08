@@ -1475,48 +1475,54 @@
     ]);
   }
 
-  // --- Recording: classic fluid blob orb (ChatGPT style) ---
+  // --- Recording: circular fluid blob orb ---
   function drawRecordingOrb(ctx, cx, cy, t, energy) {
-    // Expanding pulse rings
-    for (let i = 0; i < 3; i++) {
-      const phase = (t * 1.4 + i * 2.0) % 6;
-      const ringR = 85 + energy * 38 + phase * 14;
-      const alpha = Math.max(0, 0.12 - phase * 0.02) * (0.5 + energy);
-      ctx.strokeStyle = `rgba(73, 73, 73, ${alpha})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
-      ctx.stroke();
-    }
+    const baseR = 60;
+    const r = baseR + energy * 35;
+    const ta = t * 2;
+    const distortion = 0.6 + energy * 1.0;
 
-    drawBlobOrb(ctx, cx, cy, t, energy);
-  }
-
-  // --- Fluid blob orb helper (circular, organic, responsive) ---
-  function drawBlobOrb(ctx, cx, cy, t, energy) {
-    const r = 85 + energy * 38;
-    const noiseAmp = 6 + energy * 22;
-    const points = 120;
-
-    // Soft glow halo
-    const halo = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.6);
-    halo.addColorStop(0, `rgba(73, 73, 73, ${0.12 + energy * 0.18})`);
-    halo.addColorStop(0.6, `rgba(73, 73, 73, ${0.04 + energy * 0.06})`);
+    // Glow halo
+    const halo = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2.0);
+    halo.addColorStop(0, `rgba(73, 73, 73, ${0.15 + energy * 0.15})`);
+    halo.addColorStop(0.5, `rgba(73, 73, 73, ${0.05 + energy * 0.06})`);
     halo.addColorStop(1, 'rgba(73, 73, 73, 0)');
     ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * 2.0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Organic blob path
+    // Audio wave ring — 64-point frequency visualization
+    if (energy > 0.05 && orbAudioData) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(73, 73, 73, ${0.3 + energy * 0.3})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i <= 64; i++) {
+        const idx = i % 64;
+        const angle = (idx / 64) * Math.PI * 2;
+        const freqIdx = Math.floor((idx / 64) * orbAudioData.length);
+        const db = orbAudioData[freqIdx] || -100;
+        const amp = Math.max(0, (db + 100) / 100) * 20;
+        const waveR = r + 15 + amp;
+        const x = cx + Math.cos(angle) * waveR;
+        const y = cy + Math.sin(angle) * waveR;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Blob path — 120-point Perlin-like distortion (spec §6)
     ctx.beginPath();
-    for (let i = 0; i <= points; i++) {
-      const angle = (i / points) * Math.PI * 2;
-      const n1 = Math.sin(angle * 2 + t * 1.1) * noiseAmp * 0.45;
-      const n2 = Math.sin(angle * 3 - t * 0.7) * noiseAmp * 0.30;
-      const n3 = Math.cos(angle * 5 + t * 1.4) * noiseAmp * 0.15;
-      const n4 = Math.sin(angle * 7 - t * 1.8) * noiseAmp * 0.10;
-      const dist = r + n1 + n2 + n3 + n4;
+    for (let i = 0; i <= 120; i++) {
+      const angle = (i / 120) * Math.PI * 2;
+      const n1 = Math.sin(angle * 3 + ta * 1.2) * distortion * 6;
+      const n2 = Math.sin(angle * 5 - ta * 0.8) * distortion * 3;
+      const n3 = Math.cos(angle * 2 + ta * 1.5) * distortion * 4;
+      const dist = r + n1 + n2 + n3;
       const x = cx + Math.cos(angle) * dist;
       const y = cy + Math.sin(angle) * dist;
       if (i === 0) ctx.moveTo(x, y);
@@ -1524,27 +1530,22 @@
     }
     ctx.closePath();
 
-    // Main fill gradient
+    // Fill gradient (spec §7): origin top-left, radius 1.2R
     const fill = ctx.createRadialGradient(
-      cx - r * 0.15, cy - r * 0.15, r * 0.05,
-      cx, cy, r * 0.95
+      cx - r * 0.3, cy - r * 0.3, 0,
+      cx, cy, r * 1.2
     );
-    fill.addColorStop(0, `rgba(95, 95, 95, ${0.75 + energy * 0.2})`);
-    fill.addColorStop(0.45, `rgba(73, 73, 73, ${0.6 + energy * 0.15})`);
-    fill.addColorStop(0.8, 'rgba(55, 55, 55, 0.3)');
-    fill.addColorStop(1, 'rgba(40, 40, 40, 0)');
+    fill.addColorStop(0, 'rgba(73, 73, 73, 1)');
+    fill.addColorStop(0.6, 'rgba(73, 73, 73, 0.5)');
+    fill.addColorStop(1, 'rgba(73, 73, 73, 0)');
     ctx.fillStyle = fill;
     ctx.fill();
 
-    // Specular highlight
-    const spec = ctx.createRadialGradient(
-      cx - r * 0.25, cy - r * 0.3, 0,
-      cx - r * 0.1, cy - r * 0.1, r * 0.55
-    );
-    spec.addColorStop(0, `rgba(255, 255, 255, ${0.18 + energy * 0.08})`);
-    spec.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
-    spec.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = spec;
+    // Inner highlight gloss (spec §7)
+    const highlight = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    highlight.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+    highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = highlight;
     ctx.fill();
   }
 
