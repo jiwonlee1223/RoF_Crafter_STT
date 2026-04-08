@@ -27,7 +27,7 @@ body {
   font-family: var(--font);
   background: linear-gradient(135deg, #8D96A1, #D6DBE5);
   color: var(--text);
-  min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -38,7 +38,7 @@ body {
 
 .voice-app {
   width: 100%;
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -691,159 +691,269 @@ body {
 }
 
 /* ═══════════════════════════════════════
-   로그인 / 프로필 화면
+   로그인 / 사진관 접수 카드
    ═══════════════════════════════════════ */
 
 .login-screen {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
 }
 
-.login-card {
+/* 카드 전체 */
+.studio-card {
+  background: #FAFAF7;
+  border: 1px solid #2c2c2c;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.28);
+}
+
+/* 헤더 밴드 */
+.card-header {
+  background: #EEEEE8;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid #2c2c2c;
+}
+
+.card-logo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.card-header-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-studio-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #2c2c2c;
+  letter-spacing: 0.08em;
+}
+
+.card-header-sub {
+  font-size: 0.68rem;
+  color: #888880;
+  letter-spacing: 0.04em;
+  margin-top: 3px;
+}
+
+/* 폼 */
+.card-form {
+  padding: 0;
+}
+
+/* 테이블 */
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.info-table td {
+  border-bottom: 1px solid #2c2c2c;
+}
+
+.field-label {
+  width: 82px;
+  padding: 15px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #2c2c2c;
+  background: #EEEEE8;
+  border-right: 1px solid #2c2c2c;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.field-input {
+  background: #FAFAF7;
+  vertical-align: middle;
+}
+
+.field-input input[type="text"] {
+  width: 100%;
+  padding: 15px 14px;
   background: transparent;
   border: none;
-  padding: 40px 36px;
-  width: 100%;
-  max-width: 400px;
-  box-shadow: none;
-}
-
-.login-logo {
-  display: block;
-  margin: 0 auto 12px;
-  width: 120px;
-  height: auto;
-}
-
-.login-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  text-align: center;
-  color: var(--text);
-  margin-bottom: 30px;
-}
-
-.login-subtitle {
-  text-align: center;
-  color: var(--text-dim);
-  font-size: 0.85rem;
-  margin-bottom: 28px;
-}
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.input-group label {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-dim);
-}
-
-.input-group input {
-  padding: 15px;
-  background: var(--bg);
-  border: 1px solid rgba(150, 150, 150, 0.3);
-  border-radius: 10px;
-  color: #494949;
-  font-family: var(--font);
-  font-size: 1em;
   outline: none;
-  opacity: 0.5;
-  transition: border-color 0.3s ease;
-  margin-bottom: 10px;
+  font-family: var(--font);
+  font-size: 0.9rem;
+  color: #2c2c2c;
 }
 
-.input-group input:focus {
-  border-color: var(--primary);
-  opacity: 1;
+.field-input input[type="text"]:focus {
+  background: rgba(73, 73, 73, 0.04);
 }
 
-.input-group input::placeholder {
-  color: var(--text);
-  opacity: 0.7;
+.field-input input[type="text"]::placeholder {
+  color: #b8b8b0;
+  font-size: 0.8rem;
 }
 
-.login-btn {
-  width: 100%;
-  padding: 15px;
-  font-size: 1.1em;
-  font-weight: 600;
-  border-radius: 10px;
-  margin-top: 8px;
-}
-
-.login-btn.btn-primary {
-  background: var(--primary);
-  color: white;
-  border: none;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.3s ease;
-}
-
-.login-btn.btn-primary:hover {
-  background: var(--primary-hover);
-  transform: translateY(-1px);
-}
-
-.login-error {
-  background: rgba(231, 76, 60, 0.12);
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  color: var(--danger);
-  font-size: 0.83rem;
-  text-align: center;
-}
-
-.gender-radio-group {
+/* 성별 체크박스 */
+.gender-check-group {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 22px;
+  padding: 15px 14px;
 }
 
-.gender-radio {
-  flex: 1;
+.gender-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   cursor: pointer;
+  user-select: none;
 }
 
-.gender-radio input[type="radio"] {
+.gender-check input[type="radio"] {
   display: none;
 }
 
-.gender-radio-label {
-  display: block;
-  padding: 10px;
-  text-align: center;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-dim);
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: all 0.2s;
+.check-box {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid #2c2c2c;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
 }
 
-.gender-radio input[type="radio"]:checked + .gender-radio-label {
-  border-color: var(--primary);
-  background: rgba(73, 73, 73, 0.12);
-  color: var(--primary);
+.gender-check input[type="radio"]:checked + .check-box {
+  background: #2c2c2c;
+}
+
+.gender-check input[type="radio"]:checked + .check-box::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  background: #FAFAF7;
+  display: block;
+}
+
+.check-label {
+  font-size: 0.85rem;
+  color: #2c2c2c;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* 동의 체크박스 행 */
+.consent-row {
+  padding: 13px 14px;
+  border-top: 1px solid #2c2c2c;
+  background: #F4F3EE;
+}
+
+.consent-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.consent-check input[type="checkbox"] {
+  display: none;
+}
+
+.consent-box {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid #2c2c2c;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.consent-check input[type="checkbox"]:checked + .consent-box {
+  background: #2c2c2c;
+}
+
+.consent-check input[type="checkbox"]:checked + .consent-box::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  background: #FAFAF7;
+  display: block;
+}
+
+.consent-text {
+  font-size: 0.78rem;
+  color: #2c2c2c;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+
+.consent-required {
+  color: var(--danger);
+  font-size: 0.72rem;
   font-weight: 600;
 }
 
-.input-group input[type="date"],
-.input-group input[type="time"] {
-  color-scheme: dark;
+/* 에러 메시지 */
+.login-error {
+  padding: 10px 14px;
+  background: rgba(166, 26, 30, 0.07);
+  border-top: 1px solid var(--danger);
+  color: var(--danger);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* 하단 버튼 영역 */
+.card-actions {
+  display: flex;
+  border-top: 1px solid #2c2c2c;
+}
+
+.card-actions .login-btn {
+  flex: 1;
+  padding: 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  cursor: pointer;
+  font-family: var(--font);
+  letter-spacing: 0.04em;
+  transition: background 0.18s;
+}
+
+.card-actions .btn-primary {
+  background: #2c2c2c;
+  color: #ffffff;
+  border-left: 1px solid #2c2c2c;
+}
+
+.card-actions .btn-primary:hover {
+  background: #111111;
+}
+
+.card-actions .btn-secondary {
+  background: #EEEEE8;
+  color: #888880;
+}
+
+.card-actions .btn-secondary:hover {
+  background: #E4E4DC;
+  color: #2c2c2c;
 }
 
 /* ── 공통 버튼 ── */
