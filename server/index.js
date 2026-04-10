@@ -504,6 +504,8 @@ function shiftPitchDown(pcmBuffer, gender = 'female') {
 
   const params = gender === 'male'
     ? { semitones: -8, eqFreq: 250, eqGain: 6,  cutFreq: 3500, cutGain: -6, vibratoD: 0.05 }
+    : gender === 'neutral'
+    ? { semitones: -5, eqFreq: 275, eqGain: 4,  cutFreq: 3750, cutGain: -4, vibratoD: 0.03 }
     : { semitones: -2, eqFreq: 300, eqGain: 2,  cutFreq: 4000, cutGain: -2, vibratoD: 0.01 };
 
   const rate = Math.pow(2, params.semitones / 12);
@@ -554,7 +556,7 @@ async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userN
         if (age !== null && age <= 13) {
           try {
             audioToSave = await shiftPitchDown(combinedAudio, gender);
-            const p = gender === 'male' ? '-8 semitones, vibrato 0.05' : '-2 semitones, vibrato 0.01';
+            const p = gender === 'male' ? '-8 semitones, vibrato 0.05' : gender === 'neutral' ? '-5 semitones, vibrato 0.03' : '-2 semitones, vibrato 0.01';
             console.log(`[VOICE] Age ${age} ≤ 13, gender=${gender} — voice aging applied (${p})`);
           } catch (err) {
             console.warn('[VOICE] Pitch shift failed, saving original:', err.message);

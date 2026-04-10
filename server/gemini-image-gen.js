@@ -103,13 +103,14 @@ function getFutureAgeDecade(birthDateTime) {
  */
 function getBaseImagePrompt(gender, birthDateTime, fashionDescription) {
   const decade = getFutureAgeDecade(birthDateTime);
+  const isNeutral = !gender || gender === 'neutral';
   const isMale = gender === "male";
-  const person = isMale ? "man" : "woman";
-  const pronoun = isMale ? "his" : "her";
-  const Person = isMale ? "The man" : "The woman";
-  const Pronoun = isMale ? "His" : "Her";
+  const person = isNeutral ? "person" : (isMale ? "man" : "woman");
+  const pronoun = isNeutral ? "their" : (isMale ? "his" : "her");
+  const Person = isNeutral ? "The person" : (isMale ? "The man" : "The woman");
+  const Pronoun = isNeutral ? "Their" : (isMale ? "His" : "Her");
 
-  const outfit = fashionDescription || "wearing a casual outfits";
+  const outfit = fashionDescription || "wearing a gender-neutral casual outfit";
   console.log(`[GEMINI] Prompt age: ${decade}, gender: ${gender}, outfit: "${outfit}"`);
 
   return `Edit the image: Preserve the person's facial features, face shape, and overall appearance from the reference photo. Generate a photorealistic full body portrait of a distinguished ${person} in ${pronoun} ${decade}, ${outfit}. ${Person} leans on a very high and tall stool, body turned to a diagonal angle, head directly facing the camera, with ${pronoun} hands resting gently near ${pronoun} lap or on the chair's armrests. ${Pronoun} legs are fully closed together in a comfortable position. ${Pronoun} feet and shoes must be fully visible at the bottom of the frame. ${Pronoun} posture is composed yet relaxed. The scene is set in a seamless black studio, with the floor and background blending, creating a clean, minimalist environment. A soft shadow beneath the chair and under ${pronoun} feet anchors ${pronoun} in space and adds subtle depth. The lighting is even and bright, with smooth highlights and cinematic clarity. The image is framed with generous space below the feet, ensuring the entire body from head to toe including shoes and feet is fully visible without any cropping. The composition is centered and fully balanced, captured in a wide-angle distortion-free full-body shot with accurate head-to-body scale and perspective. Ultra-realistic, high-detail, professional studio photography.`;
@@ -134,10 +135,12 @@ async function generateFutureScenes({ conversationHistory, userName, birthDateTi
     .join('\n');
 
   const currentYear = new Date().getFullYear();
+  const isNeutral = !gender || gender === 'neutral';
   const isMale = gender === 'male';
+  const genderLabel = isNeutral ? 'unknown gender' : (isMale ? 'male' : 'female');
 
   // 1단계: 대화 분석 → 3개 미래 마일스톤 (년도 + 장면 설명)
-  const analysisPrompt = `You are a future life analyst. Based on the following conversation with ${userName || 'the user'} (${isMale ? 'male' : 'female'}, born ${birthDateTime || 'unknown'}), predict 3 key milestone moments in their future within the next 10 years (${currentYear + 1} ~ ${currentYear + 10}).
+  const analysisPrompt = `You are a future life analyst. Based on the following conversation with ${userName || 'the user'} (${genderLabel}, born ${birthDateTime || 'unknown'}), predict 3 key milestone moments in their future within the next 10 years (${currentYear + 1} ~ ${currentYear + 10}).
 
 Each milestone should be a vivid, specific life scene — a career achievement, a personal turning point, a meaningful moment, or a lifestyle change — inferred from the conversation content.
 

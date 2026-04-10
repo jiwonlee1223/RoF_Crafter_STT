@@ -302,7 +302,7 @@ async function generateExhibPersona(conversationHistory, birthDateTime, userName
     : '';
 
   const nameInfo = userName ? `\n[사용자 이름]\n${userName}\n` : '';
-  const genderInfo = gender ? `\n[사용자 성별]\n${gender === 'male' ? '남성' : '여성'}\n` : '';
+  const genderInfo = (gender && gender !== 'neutral') ? `\n[사용자 성별]\n${gender === 'male' ? '남성' : '여성'}\n` : '';
 
   // ── 1단계: 구조화된 페르소나 변수 생성 (JSON) ──
   const varsPrompt = `다음 대화 데이터를 기반으로 사용자의 10년 후 미래 페르소나를 예측하고, 아래 JSON 형식으로 **정확히** 출력하세요.
