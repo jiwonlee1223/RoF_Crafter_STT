@@ -314,7 +314,7 @@ wss.on('connection', async (ws, req) => {
             const history = sessionManager.getSession(sessionId).conversation
               .map(t => ({ role: t.role, text: t.text }));
 
-            const closingRemark = await agentService.generateClosingRemark(history, userName);
+            const closingRemark = await agentService.generateClosingRemark(history, userName, userAge);
             sessionManager.addTurn(sessionId, 'agent', closingRemark);
 
             ws.send(JSON.stringify({
