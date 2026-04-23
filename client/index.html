@@ -116,7 +116,29 @@
       </div>
       <p class="voice-status-text" id="voice-status-text"></p>
       <p class="voice-subtitle" id="voice-subtitle"></p>
+
     </main>
+
+    <!-- 연구 추가 인터뷰 연락처 오버레이 -->
+    <div id="contact-overlay" class="contact-overlay" style="display:none;">
+      <div class="contact-card">
+        <button id="btn-contact-close" class="contact-close" type="button" aria-label="닫기">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+        <p class="contact-notice">
+          향후 연구 진행 중 추가 인터뷰에 참여 의사가 있으신 경우,<br/>
+          전화번호와 이메일 주소를 남겨주시기 바랍니다.<br/>
+          해당 정보는 추후 인터뷰 일정 안내 및 연락을 위해 사용됩니다.
+        </p>
+        <div class="contact-fields">
+          <input type="tel" id="contact-phone" class="contact-input" placeholder="전화번호" />
+          <input type="email" id="contact-email" class="contact-input" placeholder="이메일" />
+        </div>
+        <button id="btn-contact-submit" class="btn-contact-submit" type="button">제출</button>
+      </div>
+    </div>
 
     <!-- 실시간 전사 (하단 오버레이) -->
     <section class="voice-transcript" id="live-transcript-section" style="display:none;">
@@ -127,7 +149,7 @@
     <footer class="voice-footer">
       <div class="mic-btn-wrapper">
         <div id="record-guide-bubble" class="record-guide-bubble" aria-hidden="true">
-          버튼을 꾹 누른 상태로 답변해 주세요.
+          책상 위 검정색 버튼을 꾹 누른 상태로 답변해 주세요.
         </div>
         <button id="btn-start" class="voice-mic-btn push-to-talk" disabled>
         <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

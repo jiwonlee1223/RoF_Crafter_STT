@@ -319,6 +319,74 @@ async function saveFutureImages(userId, futureImages) {
   }
 }
 
+// ── 방문(로그인) 기록 저장 → visitLogs/{auto-id} ──
+async function saveVisitLog(userId, name, birth, gender) {
+  if (!isReady()) return null;
+  try {
+    const docRef = db.collection('visitLogs').doc();
+    await docRef.set({
+      userId,
+      name: name || '',
+      birth: birth || '',
+      gender: gender || '',
+      visitedAt: new Date().toISOString(),
+    });
+    console.log(`[FIREBASE] Visit log saved: ${userId}`);
+    return true;
+  } catch (err) {
+    console.error('[FIREBASE] Visit log save failed:', err.message);
+    return null;
+  }
+}
+
+// ── 전체 방문 기록 조회 ──
+async function getAllVisitLogs() {
+  if (!isReady()) return [];
+  try {
+    const snapshot = await db.collection('visitLogs')
+      .orderBy('visitedAt', 'desc').get();
+    return snapshot.docs.map(doc => doc.data());
+  } catch (err) {
+    console.error('[FIREBASE] getAllVisitLogs failed:', err.message);
+    return [];
+  }
+}
+
+// ── 추가 인터뷰 연락처 저장 → contactInfo/{userId} ──
+async function saveContactInfo(userId, phone, email) {
+  if (!isReady()) {
+    console.warn('[FIREBASE] Firestore not connected - contact info not saved');
+    return null;
+  }
+  try {
+    const docRef = db.collection('contactInfo').doc(userId);
+    await docRef.set({
+      userId,
+      phone: phone || '',
+      email: email || '',
+      createdAt: new Date().toISOString(),
+    });
+    console.log(`[FIREBASE] Contact info saved: contactInfo/${userId}`);
+    return true;
+  } catch (err) {
+    console.error('[FIREBASE] Contact info save failed:', err.message);
+    return null;
+  }
+}
+
+// ── 전체 연락처 목록 조회 ──
+async function getAllContactInfo() {
+  if (!isReady()) return [];
+  try {
+    const snapshot = await db.collection('contactInfo')
+      .orderBy('createdAt', 'desc').get();
+    return snapshot.docs.map(doc => doc.data());
+  } catch (err) {
+    console.error('[FIREBASE] getAllContactInfo failed:', err.message);
+    return [];
+  }
+}
+
 module.exports = {
   init,
   isReady,
@@ -332,4 +400,8 @@ module.exports = {
   saveGeneratedVideo,
   uploadAudio,
   saveFutureImages,
+  saveContactInfo,
+  getAllContactInfo,
+  saveVisitLog,
+  getAllVisitLogs,
 };

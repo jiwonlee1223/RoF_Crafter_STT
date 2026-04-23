@@ -49,6 +49,13 @@
   const videoStatusEl = document.getElementById('video-status');
   const videoResult = document.getElementById('video-result');
 
+  // Contact Form DOM
+  const contactOverlay = document.getElementById('contact-overlay');
+  const contactPhone = document.getElementById('contact-phone');
+  const contactEmail = document.getElementById('contact-email');
+  const btnContactSubmit = document.getElementById('btn-contact-submit');
+  const btnContactClose = document.getElementById('btn-contact-close');
+
   // Camera DOM
   const btnOpenCamera = document.getElementById('btn-open-camera');
   const cameraModal = document.getElementById('camera-modal');
@@ -207,10 +214,11 @@
     btnRegister.disabled = true;
 
     try {
+      const loginGender = loginGenderInputs()?.value || 'female';
       const res = await fetch(`/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, password }),
+        body: JSON.stringify({ userId, password, gender: loginGender }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '요청 실패');
@@ -220,7 +228,6 @@
       // 로그인 화면에서 이름, 생년월일, 성별을 바로 추출
       const loginName = loginUserIdInput.value.trim();
       const loginBirth = loginPasswordInput.value.trim();
-      const loginGender = loginGenderInputs().value;
 
       // 생년월일 6자리 → YYYY-MM-DD 변환
       const yy = parseInt(loginBirth.substring(0, 2), 10);
@@ -400,6 +407,9 @@
           generating: '미래의 당신을 불러오고 있어요.',
         };
         videoStatusEl.querySelector('.video-status-text').textContent = statusMap[msg.status] || msg.status;
+        if (msg.status === 'generating') {
+          showContactForm();
+        }
         break;
       }
 
@@ -1171,6 +1181,69 @@
     }
   }
 
+  function showContactForm() {
+    if (contactOverlay) {
+      contactOverlay.style.display = '';
+      contactOverlay.style.animation = 'none';
+      void contactOverlay.offsetWidth;
+      contactOverlay.style.animation = '';
+    }
+  }
+
+  function hideContactForm() {
+    if (contactOverlay) {
+      contactOverlay.style.display = 'none';
+    }
+  }
+
+  function resetContactForm() {
+    if (!contactOverlay) return;
+    contactPhone.value = '';
+    contactEmail.value = '';
+    const card = contactOverlay.querySelector('.contact-card');
+    const thanks = card.querySelector('.contact-thanks');
+    if (thanks) {
+      thanks.remove();
+      card.querySelector('.contact-notice').style.display = '';
+      card.querySelector('.contact-fields').style.display = '';
+      btnContactSubmit.style.display = '';
+      btnContactClose.style.display = '';
+    }
+  }
+
+  if (btnContactClose) {
+    btnContactClose.addEventListener('click', () => {
+      hideContactForm();
+    });
+  }
+
+  if (btnContactSubmit) {
+    btnContactSubmit.addEventListener('click', () => {
+      const phone = contactPhone.value.trim();
+      const email = contactEmail.value.trim();
+      if (!phone && !email) return;
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'save_contact',
+          phone,
+          email,
+        }));
+      }
+
+      const card = contactOverlay.querySelector('.contact-card');
+      card.querySelector('.contact-notice').style.display = 'none';
+      card.querySelector('.contact-fields').style.display = 'none';
+      btnContactSubmit.style.display = 'none';
+      btnContactClose.style.display = 'none';
+      const thanks = document.createElement('p');
+      thanks.className = 'contact-thanks';
+      thanks.textContent = '감사합니다. 연락처가 저장되었습니다.';
+      card.appendChild(thanks);
+      setTimeout(hideContactForm, 1800);
+    });
+  }
+
   function showSessionComplete(sessionData) {
     btnStart.disabled = true;
     micLabel.textContent = '';
@@ -1180,6 +1253,8 @@
 
     voiceStatusText.textContent = '';
     summarySpinner.classList.remove('visible');
+    resetContactForm();
+    hideContactForm();
 
     if (videoSection) {
       videoSection.style.display = 'block';

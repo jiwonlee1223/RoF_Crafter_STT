@@ -57,7 +57,7 @@ app.use(express.json());
 // ── 회원가입 ──
 app.post('/api/register', async (req, res) => {
   try {
-    const { userId: name, password: birth } = req.body;
+    const { userId: name, password: birth, gender } = req.body;
     if (!name || !birth) {
       return res.status(400).json({ error: '이름과 생년월일을 입력해주세요' });
     }
@@ -69,6 +69,7 @@ app.post('/api/register', async (req, res) => {
     }
     const internalId = `${name}_${birth}`;
     await firebaseService.registerUser(internalId, birth);
+    firebaseService.saveVisitLog(internalId, name, birth, gender || '');
     res.json({ success: true, userId: internalId });
   } catch (err) {
     console.error('[AUTH] Register failed:', err.message);
@@ -79,12 +80,13 @@ app.post('/api/register', async (req, res) => {
 // ── 로그인 ──
 app.post('/api/login', async (req, res) => {
   try {
-    const { userId: name, password: birth } = req.body;
+    const { userId: name, password: birth, gender } = req.body;
     if (!name || !birth) {
       return res.status(400).json({ error: '이름과 생년월일을 입력해주세요' });
     }
     const internalId = `${name}_${birth}`;
     await firebaseService.loginUser(internalId, birth);
+    firebaseService.saveVisitLog(internalId, name, birth, gender || '');
     res.json({ success: true, userId: internalId });
   } catch (err) {
     console.error('[AUTH] Login failed:', err.message);
@@ -132,6 +134,68 @@ app.post('/api/tts', async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ error: 'TTS 변환 실패' });
     }
+  }
+});
+
+// 날짜 필터 헬퍼: from/to 쿼리 파라미터로 ISO 날짜 필드를 필터링
+function filterByDate(items, dateField, from, to) {
+  let filtered = items;
+  if (from) filtered = filtered.filter(i => (i[dateField] || '') >= from);
+  if (to) filtered = filtered.filter(i => (i[dateField] || '') < to + 'T\xff');
+  return filtered;
+}
+
+// ── 방문 기록 다운로드 ──
+app.get('/api/visits', async (req, res) => {
+  try {
+    let visits = await firebaseService.getAllVisitLogs();
+    visits = filterByDate(visits, 'visitedAt', req.query.from, req.query.to);
+    const format = req.query.format;
+
+    if (format === 'csv') {
+      const header = 'userId,name,birth,gender,visitedAt';
+      const rows = visits.map(v =>
+        `"${(v.userId || '').replace(/"/g, '""')}","${(v.name || '').replace(/"/g, '""')}","${v.birth || ''}","${v.gender || ''}","${v.visitedAt || ''}"`
+      );
+      const csv = [header, ...rows].join('\n');
+      res.set({
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="visits_${req.query.from || 'all'}_${req.query.to || 'now'}.csv"`,
+      });
+      return res.send('\uFEFF' + csv);
+    }
+
+    res.json({ count: visits.length, visits });
+  } catch (err) {
+    console.error('[VISITS] Export failed:', err.message);
+    res.status(500).json({ error: '방문 기록 조회 실패' });
+  }
+});
+
+// ── 연락처 다운로드 ──
+app.get('/api/contacts', async (req, res) => {
+  try {
+    let contacts = await firebaseService.getAllContactInfo();
+    contacts = filterByDate(contacts, 'createdAt', req.query.from, req.query.to);
+    const format = req.query.format;
+
+    if (format === 'csv') {
+      const header = 'userId,phone,email,createdAt';
+      const rows = contacts.map(c =>
+        `"${(c.userId || '').replace(/"/g, '""')}","${(c.phone || '').replace(/"/g, '""')}","${(c.email || '').replace(/"/g, '""')}","${c.createdAt || ''}"`
+      );
+      const csv = [header, ...rows].join('\n');
+      res.set({
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="contacts_${req.query.from || 'all'}_${req.query.to || 'now'}.csv"`,
+      });
+      return res.send('\uFEFF' + csv);
+    }
+
+    res.json({ count: contacts.length, contacts });
+  } catch (err) {
+    console.error('[CONTACTS] Export failed:', err.message);
+    res.status(500).json({ error: '연락처 조회 실패' });
   }
 });
 
@@ -365,6 +429,21 @@ wss.on('connection', async (ws, req) => {
         break;
       }
 
+      case 'save_contact': {
+        const contactUserId = loggedInUserId || sessionId;
+        const phone = msg.phone || '';
+        const email = msg.email || '';
+        console.log(`[CONTACT] save_contact: userId=${contactUserId}, phone=${phone ? '***' : '(empty)'}, email=${email ? '***' : '(empty)'}`);
+        try {
+          await firebaseService.saveContactInfo(contactUserId, phone, email);
+          ws.send(JSON.stringify({ type: 'contact_saved' }));
+        } catch (err) {
+          console.error('[CONTACT] Save failed:', err.message);
+          ws.send(JSON.stringify({ type: 'error', message: '연락처 저장 실패' }));
+        }
+        break;
+      }
+
       // 클라이언트에서 비디오 생성 요청
       case 'generate_video': {
         const userId = msg.userId || loggedInUserId || sessionId;
@@ -530,7 +609,7 @@ function shiftPitchDown(pcmBuffer, gender = 'female') {
     const chunks = [];
     ff.stdout.on('data', chunk => chunks.push(chunk));
     ff.stdout.on('end', () => resolve(Buffer.concat(chunks)));
-    ff.stderr.on('data', () => {});  // ffmpeg 로그 억제
+    ff.stderr.on('data', () => {});
     ff.on('error', reject);
     ff.stdin.write(pcmBuffer);
     ff.stdin.end();
