@@ -363,6 +363,7 @@ async function generateResponse(conversationHistory, referenceQuestion, userName
 
   const responseInstruction = isChild
     ? `[지시] 아래 3단계 구조로 응답하세요. 반드시 반말로 답하세요.
+단계 레이블("1단계", "2단계", "3단계" 등)은 절대 출력에 포함하지 마세요. 자연스럽게 이어지는 하나의 텍스트로 출력하세요.
 
 1단계 - 공감: 아이의 마지막 답변에 대해 짧게 공감하거나 수용합니다. 1문장 이내. (예: "그랬구나.", "그럴 수 있지.", "그런 생각을 하고 있었구나.")
 
@@ -374,6 +375,7 @@ async function generateResponse(conversationHistory, referenceQuestion, userName
 
 [참고 질문] "${referenceQuestion}"`
     : `[지시] 아래 3단계 구조로 응답하세요.
+단계 레이블("1단계", "2단계", "3단계" 등)은 절대 출력에 포함하지 마세요. 자연스럽게 이어지는 하나의 텍스트로 출력하세요.
 
 1단계 - 공감: 사용자의 마지막 답변에 대해 짧게 공감하거나 수용합니다. 1문장 이내. (예: "그렇군요.", "그럴 수 있겠지요.", "그런 고민을 할 시기네요.")
 

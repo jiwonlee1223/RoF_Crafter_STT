@@ -842,6 +842,19 @@
     if (isRecording) stopRecording();
   });
 
+  // --- Recording AudioContext (reused across recordings) ---
+  async function ensureRecordingContext() {
+    if (!audioContext || audioContext.state === 'closed') {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: 16000,
+      });
+      await audioContext.audioWorklet.addModule('pcm-processor.js');
+      console.log('[REC] AudioContext created, sampleRate:', audioContext.sampleRate);
+    } else if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+  }
+
   // --- Start Recording ---
   async function startRecording() {
     if (isRecording) return;
@@ -862,9 +875,8 @@
         },
       });
 
-      audioContext = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: 16000,
-      });
+      await ensureRecordingContext();
+
       const source = audioContext.createMediaStreamSource(mediaStream);
 
       analyserNode = audioContext.createAnalyser();
@@ -872,7 +884,6 @@
       analyserNode.smoothingTimeConstant = 0.7;
       source.connect(analyserNode);
 
-      await audioContext.audioWorklet.addModule('pcm-processor.js');
       pcmWorkletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
       pcmWorkletNode.port.onmessage = (e) => {
         if (!isRecording || !ws || ws.readyState !== WebSocket.OPEN) return;
@@ -922,9 +933,8 @@
       mediaStream = null;
     }
 
-    if (audioContext) {
-      audioContext.close();
-      audioContext = null;
+    if (audioContext && audioContext.state === 'running') {
+      audioContext.suspend();
     }
 
     orbAudioData = null;

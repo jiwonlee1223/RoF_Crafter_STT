@@ -21,6 +21,18 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
+// Railway idle timeout 방지 heartbeat (30초마다 ping)
+setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      ws.terminate();
+      return;
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
+
 const PORT = process.env.PORT || 3001;
 const MAX_TURNS = questions.questions.length;
 
@@ -249,6 +261,9 @@ app.get('/api/voice/:userId', async (req, res) => {
 });
 
 wss.on('connection', async (ws, req) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
   const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
   const loggedInUserId = params.get('userId') || null;
   const userName = params.get('userName') || null;
