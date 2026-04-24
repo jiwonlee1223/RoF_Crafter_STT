@@ -319,6 +319,44 @@ async function saveFutureImages(userId, futureImages) {
   }
 }
 
+// ── 사용자 촬영 기초 입력 이미지 저장 → Storage input_images/{userId}.jpg + Firestore inputImages/{userId} ──
+async function saveInputImage(userId, imageBuffer, mimeType = 'image/jpeg') {
+  if (!isReady() || !bucket) {
+    console.warn('[FIREBASE] saveInputImage skipped — not ready');
+    return null;
+  }
+  try {
+    const ext = mimeType.includes('png') ? 'png' : 'jpg';
+    const storagePath = `input_images/${userId}.${ext}`;
+    const file = bucket.file(storagePath);
+
+    await file.save(imageBuffer, {
+      metadata: { contentType: mimeType },
+    });
+
+    const [storageUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: '2030-01-01',
+    });
+
+    const now = new Date().toISOString();
+    await db.collection('inputImages').doc(userId).set({
+      userId,
+      storagePath,
+      storageUrl,
+      mimeType,
+      fileSizeBytes: imageBuffer.length,
+      createdAt: now,
+    });
+
+    console.log(`[FIREBASE] Input image saved: ${storagePath} (${(imageBuffer.length / 1024).toFixed(1)}KB)`);
+    return { storagePath, storageUrl };
+  } catch (err) {
+    console.error('[FIREBASE] Input image save failed:', err.message);
+    return null;
+  }
+}
+
 // ── 방문(로그인) 기록 저장 → visitLogs/{auto-id} ──
 async function saveVisitLog(userId, name, birth, gender) {
   if (!isReady()) return null;
@@ -332,6 +370,14 @@ async function saveVisitLog(userId, name, birth, gender) {
       visitedAt: new Date().toISOString(),
     });
     console.log(`[FIREBASE] Visit log saved: ${userId}`);
+
+    if (userId && gender) {
+      await db.collection('responses').doc(userId)
+        .collection('default').doc('data')
+        .set({ gender }, { merge: true });
+      console.log(`[FIREBASE] Gender saved: responses/${userId}/default/data`);
+    }
+
     return true;
   } catch (err) {
     console.error('[FIREBASE] Visit log save failed:', err.message);
@@ -400,6 +446,7 @@ module.exports = {
   saveGeneratedVideo,
   uploadAudio,
   saveFutureImages,
+  saveInputImage,
   saveContactInfo,
   getAllContactInfo,
   saveVisitLog,

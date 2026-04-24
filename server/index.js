@@ -470,6 +470,11 @@ wss.on('connection', async (ws, req) => {
 
           const rawImage = Buffer.from(msg.fileBuffer);
 
+          // 원본 입력 이미지를 Storage/Firestore에 저장 (user 단위)
+          firebaseService.saveInputImage(userId, rawImage).catch(err =>
+            console.warn('[VIDEO] Input image save failed:', err.message)
+          );
+
           // Gemini로 이미지 전처리 (image-to-image)
           ws.send(JSON.stringify({ type: 'video_status', status: 'preprocessing' }));
           let imageToUpload = rawImage;
@@ -541,7 +546,6 @@ wss.on('connection', async (ws, req) => {
               userName,
               birthDateTime,
               gender,
-              rawImageBuffer: rawImage,
               portraitImageBuffer: imageToUpload,
             }).then(async (futureImages) => {
               console.log(`[FUTURE] ${futureImages.length} future scene images generated for userId=${userId}`);
@@ -587,46 +591,6 @@ function getAge(birthDateStr) {
   return age;
 }
 
-// 변성기 효과: 성별에 따라 다른 파라미터 적용
-// 남자: F0 급락(-8) + 강한 저음 + 심한 갈라짐
-// 여자: F0 소폭(-2) + 약한 저음 + 거의 없는 갈라짐
-function shiftPitchDown(pcmBuffer, gender = 'female') {
-  const { spawn } = require('child_process');
-
-  const params = gender === 'male'
-    ? { semitones: -8, eqFreq: 250, eqGain: 6,  cutFreq: 3500, cutGain: -6, vibratoD: 0.05 }
-    : gender === 'neutral'
-    ? { semitones: -5, eqFreq: 275, eqGain: 4,  cutFreq: 3750, cutGain: -4, vibratoD: 0.03 }
-    : { semitones: -2, eqFreq: 300, eqGain: 2,  cutFreq: 4000, cutGain: -2, vibratoD: 0.01 };
-
-  const rate = Math.pow(2, params.semitones / 12);
-  const tempo = 1 / rate;
-
-  const audioFilter = [
-    `asetrate=16000*${rate}`,
-    `aresample=16000`,
-    `atempo=${tempo}`,
-    `equalizer=f=${params.eqFreq}:width_type=o:width=2:g=${params.eqGain}`,
-    `equalizer=f=${params.cutFreq}:width_type=o:width=2:g=${params.cutGain}`,
-    `vibrato=f=4:d=${params.vibratoD}`,
-  ].join(',');
-
-  return new Promise((resolve, reject) => {
-    const ff = spawn('ffmpeg', [
-      '-f', 's16le', '-ar', '16000', '-ac', '1', '-i', 'pipe:0',
-      '-af', audioFilter,
-      '-f', 's16le', '-ar', '16000', '-ac', '1', 'pipe:1',
-    ]);
-
-    const chunks = [];
-    ff.stdout.on('data', chunk => chunks.push(chunk));
-    ff.stdout.on('end', () => resolve(Buffer.concat(chunks)));
-    ff.stderr.on('data', () => {});
-    ff.on('error', reject);
-    ff.stdin.write(pcmBuffer);
-    ff.stdin.end();
-  });
-}
 
 async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userName, gender, onFashionPrompt) {
   console.log(`[SESSION] handleSessionComplete called — onFashionPrompt=${typeof onFashionPrompt}`);
@@ -642,20 +606,9 @@ async function handleSessionComplete(sessionId, ws, userId, birthDateTime, userN
         console.warn(`[VOICE] Audio too short (${audioDuration.toFixed(1)}s < ${MIN_VOICE_DURATION_SEC}s) — skipping voice save`);
       } else {
         const voiceUserId = userId || sessionId;
-        const age = getAge(birthDateTime);
-        let audioToSave = combinedAudio;
-        if (age !== null && age <= 13) {
-          try {
-            audioToSave = await shiftPitchDown(combinedAudio, gender);
-            const p = gender === 'male' ? '-8 semitones, vibrato 0.05' : gender === 'neutral' ? '-5 semitones, vibrato 0.03' : '-2 semitones, vibrato 0.01';
-            console.log(`[VOICE] Age ${age} ≤ 13, gender=${gender} — voice aging applied (${p})`);
-          } catch (err) {
-            console.warn('[VOICE] Pitch shift failed, saving original:', err.message);
-          }
-        }
-        audioUrl = await firebaseService.uploadAudio(sessionId, audioToSave);
+        audioUrl = await firebaseService.uploadAudio(sessionId, combinedAudio);
         if (audioUrl) sessionManager.setAudioUrl(sessionId, audioUrl);
-        await firebaseService.saveVoice(voiceUserId, audioToSave, 'recorded_voice.mp3', 'audio/mpeg');
+        await firebaseService.saveVoice(voiceUserId, combinedAudio, 'recorded_voice.mp3', 'audio/mpeg');
       }
     }
 

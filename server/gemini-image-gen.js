@@ -1,7 +1,8 @@
 const { GoogleGenAI } = require("@google/genai");
 require("dotenv").config();
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-pro-image-preview";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-image";
+const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || "gemini-2.5-flash";
 
 async function withRetry(fn, label, maxAttempts = 3, baseDelayMs = 2000) {
   let lastError;
@@ -144,11 +145,10 @@ function getBaseImagePrompt(gender, birthDateTime, fashionDescription) {
  * @param {string} params.userName - 사용자 이름
  * @param {string} params.birthDateTime - 생년월일 "YYYY-MM-DD"
  * @param {string} params.gender - 'male' | 'female'
- * @param {Buffer} params.rawImageBuffer - 사용자 원본 사진 (미래 장면 3장에 사용)
- * @param {Buffer} params.portraitImageBuffer - Gemini 생성 초상화 이미지 버퍼 (bust shot 변환에 사용)
+ * @param {Buffer} params.portraitImageBuffer - Gemini 생성 초상화 이미지 버퍼 (bust shot 및 미래 장면 참조에 사용)
  * @returns {Promise<Array<{year: number, description: string, imageBuffer: Buffer, mimeType: string}>>}
  */
-async function generateFutureScenes({ conversationHistory, userName, birthDateTime, gender, rawImageBuffer, portraitImageBuffer }) {
+async function generateFutureScenes({ conversationHistory, userName, birthDateTime, gender, portraitImageBuffer }) {
   const genAI = getClient();
 
   const userContext = conversationHistory
@@ -179,7 +179,7 @@ ${userContext}`;
   console.log(`[GEMINI-FUTURE] Analyzing conversation for future scenes...`);
 
   const analysisResponse = await genAI.models.generateContent({
-    model: GEMINI_MODEL,
+    model: GEMINI_TEXT_MODEL,
     contents: [{ role: "user", parts: [{ text: analysisPrompt }] }],
     config: { responseModalities: ["TEXT"] },
   });
@@ -196,18 +196,18 @@ ${userContext}`;
 
   console.log(`[GEMINI-FUTURE] Generated ${milestones.length} milestones: ${milestones.map(m => m.year).join(', ')}`);
 
-  // 2단계: 미래 장면 3장 + 초상화 6:9 변환 1장 = 4개 병렬 생성
-  const ASPECT_RATIO_INSTRUCTION = 'The image MUST be in 9:6 landscape aspect ratio (width:height = 9:6). Horizontal composition.';
+  // 2단계: 미래 장면 3장 + 초상화 16:9 변환 1장 = 4개 순차 생성 (rate limit 방지)
+  const LANDSCAPE_CONFIG = {
+    responseModalities: ["IMAGE", "TEXT"],
+    imageConfig: { aspectRatio: "16:9" },
+  };
 
-  const base64Raw = rawImageBuffer.toString("base64");
   const base64Portrait = portraitImageBuffer.toString("base64");
 
-  // 미래 장면 3장 (사용자 원본 사진을 참조하여 같은 인물로 생성)
-  const scenePromises = milestones.map(async (milestone, idx) => {
-    // 요청 분산: 각 요청 사이에 1.5초 간격
-    if (idx > 0) await new Promise(r => setTimeout(r, idx * 1500));
+  const INTER_REQUEST_DELAY = 3000;
 
-    const imagePrompt = `Edit this image: Preserve the person's facial features, face shape, and overall appearance from the reference photo. Place this same person in a new scene: Year ${milestone.year}. ${milestone.description_en}. The person should be the dominant subject, filling a large portion of the frame (at least 60% of the image). Photorealistic, cinematic lighting, high detail, professional photography quality. Do NOT include any text or numbers in the image. ${ASPECT_RATIO_INSTRUCTION}`;
+  async function generateScene(milestone, idx) {
+    const imagePrompt = `Edit this image: Preserve the person's facial features, face shape, and overall appearance from the reference photo. Place this same person in a new scene: Year ${milestone.year}. ${milestone.description_en}. The person should be the dominant subject, filling a large portion of the frame (at least 60% of the image). Photorealistic, cinematic lighting, high detail, professional photography quality. Do NOT include any text or numbers in the image.`;
 
     console.log(`[GEMINI-FUTURE] Generating scene ${idx + 1}/3 for year ${milestone.year}...`);
 
@@ -218,10 +218,10 @@ ${userContext}`;
           role: "user",
           parts: [
             { text: imagePrompt },
-            { inlineData: { mimeType: "image/jpeg", data: base64Raw } },
+            { inlineData: { mimeType: "image/jpeg", data: base64Portrait } },
           ],
         }],
-        config: { responseModalities: ["IMAGE", "TEXT"] },
+        config: LANDSCAPE_CONFIG,
       });
 
       const parts = imageResponse.candidates?.[0]?.content?.parts || [];
@@ -243,14 +243,11 @@ ${userContext}`;
         mimeType,
       };
     }, `scene-${milestone.year}`);
-  });
+  }
 
-  // 초상화 → 가로 9:6 바스트 컷 변환 1장 (scene 요청들과 겹치지 않도록 3초 후 시작)
-  const portraitPromise = (async () => {
-    await new Promise(r => setTimeout(r, 3000));
+  async function generatePortraitBust() {
     const portraitYear = currentYear + 10;
-
-    console.log(`[GEMINI-FUTURE] Converting portrait to 9:6 bust shot for year ${portraitYear}...`);
+    console.log(`[GEMINI-FUTURE] Converting portrait to 16:9 bust shot for year ${portraitYear}...`);
 
     return withRetry(async () => {
       const portraitResponse = await genAI.models.generateContent({
@@ -258,11 +255,11 @@ ${userContext}`;
         contents: [{
           role: "user",
           parts: [
-            { text: `Edit this image: Convert to a bust shot (head and upper body, cut at chest level). Preserve the person's facial features, face shape, and appearance exactly. The person should fill a large portion of the frame — tight bust-level crop with the subject as the dominant element. Reframe to 9:6 landscape aspect ratio (width:height = 9:6). Maintain the same photorealistic quality, lighting, and style. Extend or adjust the background seamlessly. ${ASPECT_RATIO_INSTRUCTION}` },
+            { text: `Edit this image: Convert to a bust shot (head and upper body, cut at chest level). Preserve the person's facial features, face shape, and appearance exactly. The person should fill a large portion of the frame — tight bust-level crop with the subject as the dominant element. Maintain the same photorealistic quality, lighting, and style. Extend or adjust the background seamlessly.` },
             { inlineData: { mimeType: "image/jpeg", data: base64Portrait } },
           ],
         }],
-        config: { responseModalities: ["IMAGE", "TEXT"] },
+        config: LANDSCAPE_CONFIG,
       });
 
       const parts = portraitResponse.candidates?.[0]?.content?.parts || [];
@@ -275,7 +272,7 @@ ${userContext}`;
       }
 
       const mimeType = imagePart.inlineData.mimeType || "image/png";
-      console.log(`[GEMINI-FUTURE] Portrait bust shot 9:6 done (${mimeType})`);
+      console.log(`[GEMINI-FUTURE] Portrait bust shot 16:9 done (${mimeType})`);
 
       return {
         year: portraitYear,
@@ -284,11 +281,16 @@ ${userContext}`;
         mimeType,
       };
     }, 'portrait-bust');
-  })();
+  }
 
-  const [portrait, ...scenes] = await Promise.all([portraitPromise, ...scenePromises]);
+  // 4개 요청을 순차 실행 (각 사이 3초 대기) — rate limit 방지
+  const scenes = [];
+  for (let i = 0; i < milestones.length; i++) {
+    scenes.push(await generateScene(milestones[i], i));
+    await new Promise(r => setTimeout(r, INTER_REQUEST_DELAY));
+  }
+  const portrait = await generatePortraitBust();
 
-  // 초상화(10년 후)를 첫 번째로, 나머지 장면을 년도순으로 정렬
   const sortedScenes = scenes.sort((a, b) => a.year - b.year);
   const results = [portrait, ...sortedScenes];
 
