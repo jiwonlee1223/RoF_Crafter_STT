@@ -61,9 +61,6 @@ app.post('/api/register', async (req, res) => {
     if (!name || !birth) {
       return res.status(400).json({ error: '이름과 생년월일을 입력해주세요' });
     }
-    if (name.length < 2) {
-      return res.status(400).json({ error: '이름은 2자 이상이어야 합니다' });
-    }
     if (!/^\d{6}$/.test(birth)) {
       return res.status(400).json({ error: '생년월일 6자리 숫자를 입력해주세요 (예: 990315)' });
     }

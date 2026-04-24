@@ -3,6 +3,23 @@ require("dotenv").config();
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3-pro-image-preview";
 
+async function withRetry(fn, label, maxAttempts = 3, baseDelayMs = 2000) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts) {
+        const delay = baseDelayMs * attempt;
+        console.warn(`[GEMINI] ${label} attempt ${attempt}/${maxAttempts} failed: ${err.message}. Retrying in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 let client = null;
 
 function getClient() {
@@ -32,38 +49,42 @@ async function generateImageWithGemini({ imageBuffer, prompt }) {
   console.log(`[GEMINI] Generating image with model: ${GEMINI_MODEL}`);
   console.log(`[GEMINI] Prompt length: ${prompt.length} chars`);
 
-  const response = await genAI.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image,
+  return withRetry(async () => {
+    const response = await genAI.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: base64Image,
+              },
             },
-          },
-        ],
+          ],
+        },
+      ],
+      config: {
+        responseModalities: ["IMAGE", "TEXT"],
       },
-    ],
-    config: {
-      responseModalities: ["IMAGE", "TEXT"],
-    },
-  });
+    });
 
-  const parts = response.candidates?.[0]?.content?.parts || [];
-  const imagePart = parts.find((p) => p.inlineData);
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((p) => p.inlineData);
 
-  if (!imagePart) {
-    throw new Error("Gemini did not return an image in the response");
-  }
+    if (!imagePart) {
+      const textParts = parts.filter(p => p.text).map(p => p.text?.slice(0, 100)).join(' | ');
+      console.warn(`[GEMINI] No image in response. Text parts: ${textParts || '(none)'}`);
+      throw new Error("Gemini did not return an image in the response");
+    }
 
-  const mimeType = imagePart.inlineData.mimeType || "image/png";
-  console.log(`[GEMINI] Image generated successfully (${mimeType})`);
+    const mimeType = imagePart.inlineData.mimeType || "image/png";
+    console.log(`[GEMINI] Image generated successfully (${mimeType})`);
 
-  return Buffer.from(imagePart.inlineData.data, "base64");
+    return Buffer.from(imagePart.inlineData.data, "base64");
+  }, 'portrait');
 }
 
 /**
@@ -183,74 +204,86 @@ ${userContext}`;
 
   // 미래 장면 3장 (사용자 원본 사진을 참조하여 같은 인물로 생성)
   const scenePromises = milestones.map(async (milestone, idx) => {
+    // 요청 분산: 각 요청 사이에 1.5초 간격
+    if (idx > 0) await new Promise(r => setTimeout(r, idx * 1500));
+
     const imagePrompt = `Edit this image: Preserve the person's facial features, face shape, and overall appearance from the reference photo. Place this same person in a new scene: Year ${milestone.year}. ${milestone.description_en}. The person should be the dominant subject, filling a large portion of the frame (at least 60% of the image). Photorealistic, cinematic lighting, high detail, professional photography quality. Do NOT include any text or numbers in the image. ${ASPECT_RATIO_INSTRUCTION}`;
 
     console.log(`[GEMINI-FUTURE] Generating scene ${idx + 1}/3 for year ${milestone.year}...`);
 
-    const imageResponse = await genAI.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: [{
-        role: "user",
-        parts: [
-          { text: imagePrompt },
-          { inlineData: { mimeType: "image/jpeg", data: base64Raw } },
-        ],
-      }],
-      config: { responseModalities: ["IMAGE", "TEXT"] },
-    });
+    return withRetry(async () => {
+      const imageResponse = await genAI.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: [{
+          role: "user",
+          parts: [
+            { text: imagePrompt },
+            { inlineData: { mimeType: "image/jpeg", data: base64Raw } },
+          ],
+        }],
+        config: { responseModalities: ["IMAGE", "TEXT"] },
+      });
 
-    const parts = imageResponse.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find(p => p.inlineData);
+      const parts = imageResponse.candidates?.[0]?.content?.parts || [];
+      const imagePart = parts.find(p => p.inlineData);
 
-    if (!imagePart) {
-      throw new Error(`Gemini did not return an image for year ${milestone.year}`);
-    }
+      if (!imagePart) {
+        const textParts = parts.filter(p => p.text).map(p => p.text?.slice(0, 100)).join(' | ');
+        console.warn(`[GEMINI-FUTURE] No image in response for year ${milestone.year}. Text parts: ${textParts || '(none)'}`);
+        throw new Error(`Gemini did not return an image for year ${milestone.year}`);
+      }
 
-    const mimeType = imagePart.inlineData.mimeType || "image/png";
-    console.log(`[GEMINI-FUTURE] Scene ${idx + 1}/3 generated (${mimeType}) for year ${milestone.year}`);
+      const mimeType = imagePart.inlineData.mimeType || "image/png";
+      console.log(`[GEMINI-FUTURE] Scene ${idx + 1}/3 generated (${mimeType}) for year ${milestone.year}`);
 
-    return {
-      year: milestone.year,
-      description: milestone.description_ko,
-      imageBuffer: Buffer.from(imagePart.inlineData.data, "base64"),
-      mimeType,
-    };
+      return {
+        year: milestone.year,
+        description: milestone.description_ko,
+        imageBuffer: Buffer.from(imagePart.inlineData.data, "base64"),
+        mimeType,
+      };
+    }, `scene-${milestone.year}`);
   });
 
-  // 초상화 → 가로 9:6 바스트 컷 변환 1장
+  // 초상화 → 가로 9:6 바스트 컷 변환 1장 (scene 요청들과 겹치지 않도록 3초 후 시작)
   const portraitPromise = (async () => {
+    await new Promise(r => setTimeout(r, 3000));
     const portraitYear = currentYear + 10;
 
     console.log(`[GEMINI-FUTURE] Converting portrait to 9:6 bust shot for year ${portraitYear}...`);
 
-    const portraitResponse = await genAI.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: [{
-        role: "user",
-        parts: [
-          { text: `Edit this image: Convert to a bust shot (head and upper body, cut at chest level). Preserve the person's facial features, face shape, and appearance exactly. The person should fill a large portion of the frame — tight bust-level crop with the subject as the dominant element. Reframe to 9:6 landscape aspect ratio (width:height = 9:6). Maintain the same photorealistic quality, lighting, and style. Extend or adjust the background seamlessly. ${ASPECT_RATIO_INSTRUCTION}` },
-          { inlineData: { mimeType: "image/jpeg", data: base64Portrait } },
-        ],
-      }],
-      config: { responseModalities: ["IMAGE", "TEXT"] },
-    });
+    return withRetry(async () => {
+      const portraitResponse = await genAI.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: [{
+          role: "user",
+          parts: [
+            { text: `Edit this image: Convert to a bust shot (head and upper body, cut at chest level). Preserve the person's facial features, face shape, and appearance exactly. The person should fill a large portion of the frame — tight bust-level crop with the subject as the dominant element. Reframe to 9:6 landscape aspect ratio (width:height = 9:6). Maintain the same photorealistic quality, lighting, and style. Extend or adjust the background seamlessly. ${ASPECT_RATIO_INSTRUCTION}` },
+            { inlineData: { mimeType: "image/jpeg", data: base64Portrait } },
+          ],
+        }],
+        config: { responseModalities: ["IMAGE", "TEXT"] },
+      });
 
-    const parts = portraitResponse.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find(p => p.inlineData);
+      const parts = portraitResponse.candidates?.[0]?.content?.parts || [];
+      const imagePart = parts.find(p => p.inlineData);
 
-    if (!imagePart) {
-      throw new Error('Gemini did not return a bust shot image');
-    }
+      if (!imagePart) {
+        const textParts = parts.filter(p => p.text).map(p => p.text?.slice(0, 100)).join(' | ');
+        console.warn(`[GEMINI-FUTURE] No image in bust shot response. Text parts: ${textParts || '(none)'}`);
+        throw new Error('Gemini did not return a bust shot image');
+      }
 
-    const mimeType = imagePart.inlineData.mimeType || "image/png";
-    console.log(`[GEMINI-FUTURE] Portrait bust shot 9:6 done (${mimeType})`);
+      const mimeType = imagePart.inlineData.mimeType || "image/png";
+      console.log(`[GEMINI-FUTURE] Portrait bust shot 9:6 done (${mimeType})`);
 
-    return {
-      year: portraitYear,
-      description: `${portraitYear}년의 나`,
-      imageBuffer: Buffer.from(imagePart.inlineData.data, "base64"),
-      mimeType,
-    };
+      return {
+        year: portraitYear,
+        description: `${portraitYear}년의 나`,
+        imageBuffer: Buffer.from(imagePart.inlineData.data, "base64"),
+        mimeType,
+      };
+    }, 'portrait-bust');
   })();
 
   const [portrait, ...scenes] = await Promise.all([portraitPromise, ...scenePromises]);
