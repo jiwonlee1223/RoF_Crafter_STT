@@ -599,7 +599,7 @@ ${userContext}
       temperature: 0.7,
     }),
     openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
