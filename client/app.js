@@ -865,12 +865,6 @@
   // --- Recording AudioContext (reused across recordings) ---
   async function ensureRecordingContext() {
     if (!audioContext || audioContext.state === 'closed') {
-      // Recreating context: discard old stream source node (will be rebuilt)
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(t => t.stop());
-        mediaStream = null;
-      }
-      mediaStreamSourceNode = null;
       audioContext = new (window.AudioContext || window.webkitAudioContext)({
         sampleRate: 16000,
       });
@@ -957,8 +951,18 @@
       pcmWorkletNode = null;
     }
 
-    // Keep mediaStream and audioContext alive to avoid re-acquisition cost and
-    // iOS user-gesture issues on subsequent recordings.
+    if (mediaStreamSourceNode) {
+      mediaStreamSourceNode.disconnect();
+      mediaStreamSourceNode = null;
+    }
+
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+
+    // AudioContext stays running (not suspended) — avoids iOS user-gesture
+    // requirement on resume() after async getUserMedia chain.
 
     orbAudioData = null;
     hideLowVolumeBubble();
