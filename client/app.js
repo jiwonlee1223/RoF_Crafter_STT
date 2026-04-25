@@ -75,6 +75,7 @@
   let audioContext = null;
   let analyserNode = null;
   let mediaStream = null;
+  let mediaStreamSourceNode = null;
   let pcmWorkletNode = null;
   let isRecording = false;
   let isSpeaking = false;
@@ -268,6 +269,21 @@
     if (ws) ws.close();
     loggedInUserId = null;
     userProfile = { name: '', gender: 'female', birthDateTime: '' };
+
+    // Release mic and audio resources on logout
+    if (mediaStreamSourceNode) {
+      mediaStreamSourceNode.disconnect();
+      mediaStreamSourceNode = null;
+    }
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+    }
+
     appEl.style.display = 'none';
     loginScreen.style.display = 'flex';
     loginUserIdInput.value = '';
@@ -810,12 +826,16 @@
   btnStart.addEventListener('mousedown', (e) => {
     e.preventDefault();
     dismissRecordGuide();
+    // Resume AudioContext synchronously within user gesture (required on iOS)
+    if (audioContext && audioContext.state === 'suspended') audioContext.resume().catch(() => {});
     if (!btnStart.disabled && !isRecording) startRecording();
   });
 
   btnStart.addEventListener('touchstart', (e) => {
     e.preventDefault();
     dismissRecordGuide();
+    // Resume AudioContext synchronously within user gesture (required on iOS)
+    if (audioContext && audioContext.state === 'suspended') audioContext.resume().catch(() => {});
     if (!btnStart.disabled && !isRecording) startRecording();
   });
 
@@ -845,6 +865,12 @@
   // --- Recording AudioContext (reused across recordings) ---
   async function ensureRecordingContext() {
     if (!audioContext || audioContext.state === 'closed') {
+      // Recreating context: discard old stream source node (will be rebuilt)
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      mediaStreamSourceNode = null;
       audioContext = new (window.AudioContext || window.webkitAudioContext)({
         sampleRate: 16000,
       });
@@ -852,6 +878,7 @@
       console.log('[REC] AudioContext created, sampleRate:', audioContext.sampleRate);
     } else if (audioContext.state === 'suspended') {
       await audioContext.resume();
+      console.log('[REC] AudioContext resumed, sampleRate:', audioContext.sampleRate);
     }
   }
 
@@ -866,30 +893,37 @@
         console.log('[CLIENT] start_recording sent');
       }
 
-      mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          sampleRate: 16000,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
+      // Acquire mic stream only once per session; reuse on subsequent recordings
+      if (!mediaStream) {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            sampleRate: 16000,
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
+        });
+      }
 
       await ensureRecordingContext();
 
-      const source = audioContext.createMediaStreamSource(mediaStream);
+      // Build source → analyser graph only once; reuse on subsequent recordings
+      if (!mediaStreamSourceNode) {
+        mediaStreamSourceNode = audioContext.createMediaStreamSource(mediaStream);
+        analyserNode = audioContext.createAnalyser();
+        analyserNode.fftSize = 256;
+        analyserNode.smoothingTimeConstant = 0.7;
+        mediaStreamSourceNode.connect(analyserNode);
+        console.log('[REC] Stream source and analyser created');
+      }
 
-      analyserNode = audioContext.createAnalyser();
-      analyserNode.fftSize = 256;
-      analyserNode.smoothingTimeConstant = 0.7;
-      source.connect(analyserNode);
-
+      // PCM worklet is created fresh each recording
       pcmWorkletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
       pcmWorkletNode.port.onmessage = (e) => {
         if (!isRecording || !ws || ws.readyState !== WebSocket.OPEN) return;
         ws.send(e.data);
       };
-      source.connect(pcmWorkletNode);
+      mediaStreamSourceNode.connect(pcmWorkletNode);
       pcmWorkletNode.connect(audioContext.destination);
 
       btnStart.classList.add('recording');
@@ -928,14 +962,8 @@
       pcmWorkletNode = null;
     }
 
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(t => t.stop());
-      mediaStream = null;
-    }
-
-    if (audioContext && audioContext.state === 'running') {
-      audioContext.suspend();
-    }
+    // Keep mediaStream and audioContext alive to avoid re-acquisition cost and
+    // iOS user-gesture issues on subsequent recordings.
 
     orbAudioData = null;
     hideLowVolumeBubble();
