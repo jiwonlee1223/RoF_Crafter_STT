@@ -354,10 +354,12 @@ wss.on('connection', async (ws, req) => {
             }));
           } else {
             console.log('[REC] Empty or hallucinated transcript, resetting mic');
+            sessionManager.clearAudioChunks(sessionId);
             ws.send(JSON.stringify({ type: 'transcript_rejected' }));
           }
         } catch (err) {
           console.error('[REC] Pre-recorded transcription failed:', err.message);
+          sessionManager.clearAudioChunks(sessionId);
           ws.send(JSON.stringify({ type: 'transcript_rejected' }));
         }
         break;

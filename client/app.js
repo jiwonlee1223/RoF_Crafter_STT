@@ -893,31 +893,26 @@
         console.log('[CLIENT] start_recording sent');
       }
 
-      // Acquire mic stream only once per session; reuse on subsequent recordings
-      if (!mediaStream) {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            channelCount: 1,
-            sampleRate: 16000,
-            echoCancellation: true,
-            noiseSuppression: true,
-          },
-        });
-      }
+      // Always get a fresh stream: on iOS, reusing a stream after TTS playback
+      // causes the microphone to return silence due to audio session conflicts.
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          sampleRate: 16000,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
 
       await ensureRecordingContext();
 
-      // Build source → analyser graph only once; reuse on subsequent recordings
-      if (!mediaStreamSourceNode) {
-        mediaStreamSourceNode = audioContext.createMediaStreamSource(mediaStream);
-        analyserNode = audioContext.createAnalyser();
-        analyserNode.fftSize = 256;
-        analyserNode.smoothingTimeConstant = 0.7;
-        mediaStreamSourceNode.connect(analyserNode);
-        console.log('[REC] Stream source and analyser created');
-      }
+      // Build source → analyser graph fresh for each recording
+      mediaStreamSourceNode = audioContext.createMediaStreamSource(mediaStream);
+      analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 256;
+      analyserNode.smoothingTimeConstant = 0.7;
+      mediaStreamSourceNode.connect(analyserNode);
 
-      // PCM worklet is created fresh each recording
       pcmWorkletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
       pcmWorkletNode.port.onmessage = (e) => {
         if (!isRecording || !ws || ws.readyState !== WebSocket.OPEN) return;
